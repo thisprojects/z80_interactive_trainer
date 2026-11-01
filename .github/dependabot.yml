@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    ignore:
+      # Pinned on purpose (see playwright.config.js): newer releases drop macOS 13, the dev machine.
+      - dependency-name: '@playwright/test'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /tools
+    schedule: { interval: weekly }

@@ -1,0 +1,67 @@
+name: CI
+
+# Run on pushes to main and on pull requests (not both for the same commit on a PR branch).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The jobs only read the repository; give the token no more than that.
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes a run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Actions are pinned to full commit hashes (the comment names the release) so a moved tag
+# cannot change what runs. Dependabot (.github/dependabot.yml) proposes updates.
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  cpu-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The comparison only needs node itself (it imports src/z80/cpu.js), not npm packages.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - run: pip install -r tools/requirements.txt
+      - run: python -I tools/compare_cpu.py
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  assembler-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: sudo apt-get update && sudo apt-get install -y pasmo
+      - run: npm ci
+      - run: npm run check:assembler

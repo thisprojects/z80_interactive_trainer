@@ -1,0 +1,66 @@
+import { describe, it, expect } from 'vitest'
+import { Machine, PORT, MAX_OUTPUT, TRUNCATED_MARK } from './machine.js'
+import { assemble } from './assembler.js'
+
+describe('Machine', () => {
+  it('captures console output from ports', () => {
+    const m = new Machine()
+    m.load(assemble("LD A,'H'\nOUT (0),A\nLD A,42\nOUT (1),A\nOUT (2),A\nHALT"))
+    const r = m.run()
+    expect(r).toMatchObject({ halted: true, timedOut: false })
+    expect(m.output).toBe('H42\n')
+    expect(PORT.CHAR).toBe(0)
+  })
+  it('reports unsupported ports instead of ignoring them', () => {
+    const out = new Machine()
+    out.load(assemble('OUT (9),A\nHALT'))
+    expect(() => out.run()).toThrow(/port 9 is not supported/)
+    const inp = new Machine()
+    inp.load(assemble('IN A,(1)\nHALT'))
+    expect(() => inp.run()).toThrow(/IN from port 1/)
+  })
+  it('counts CALLs by target address', () => {
+    const m = new Machine()
+    const p = assemble('CALL f\nCALL f\nCALL NZ,f\nHALT\nf: RET')
+    m.load(p)
+    m.run()
+    expect(m.callCounts.get(p.symbols.get('f'))).toBe(3)
+  })
+  it('traps RST 0x10 as print-char, other RSTs call through', () => {
+    const m = new Machine()
+    m.load(assemble("LD A,'x'\nRST 16\nHALT"))
+    m.run()
+    expect(m.output).toBe('x')
+    const m2 = new Machine()
+    m2.load(assemble('RST 8\nHALT'))
+    m2.cpu.step()
+    expect(m2.cpu.pc).toBe(8)
+  })
+  it('caps runaway output', () => {
+    const m = new Machine()
+    m.load(assemble("loop: LD A,'x'\nOUT (0),A\nJR loop"))
+    m.run()
+    expect(m.truncated).toBe(true)
+    expect(m.output).toBe('x'.repeat(MAX_OUTPUT) + TRUNCATED_MARK)
+    const rst = new Machine()
+    rst.load(assemble("loop: LD A,'y'\nRST 16\nJR loop"))
+    rst.run()
+    expect(rst.output.endsWith(TRUNCATED_MARK)).toBe(true)
+  })
+  it('stops at the step limit', () => {
+    const m = new Machine()
+    m.load(assemble('loop: JR loop'))
+    expect(m.run(50)).toEqual({ halted: false, steps: 50, timedOut: true })
+  })
+  it('sets and reads registers and memory', () => {
+    const m = new Machine()
+    m.setRegisters({ a: 1, B: 2, C: 3, D: 4, E: 5, H: 6, L: 7 })
+    expect(m.getRegisters()).toMatchObject({ A: 1, B: 2, C: 3, D: 4, E: 5, H: 6, L: 7, HL: 0x0607, BC: 0x0203, DE: 0x0405 })
+    m.setRegisters({ BC: 0x1111, DE: 0x2222, HL: 0x3333, SP: 0x4444 })
+    expect(m.getRegisters()).toMatchObject({ BC: 0x1111, DE: 0x2222, HL: 0x3333, SP: 0x4444 })
+    m.poke(0x9000, [1, 2])
+    expect(m.memory[0x9001]).toBe(2)
+    m.setRegisters()
+    expect(() => m.setRegisters({ Q: 1 })).toThrow(/Unknown register/)
+  })
+})
