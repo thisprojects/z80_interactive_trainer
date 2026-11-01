@@ -80,3 +80,7 @@ Rules worth knowing:
 - A program ends at `HALT`. After 200,000 instructions it is stopped with "Program did not finish".
 - Console ports: `OUT (0),A` prints a character, `OUT (1),A` prints A as a decimal number, `OUT (2),A` prints a newline. `RST 0x10` also prints A. Any other port stops the program with an error. Output is capped at 20,000 characters.
 - Flags S, Z, H, P/V, N and C follow a real Z80 (checked against the Python `z80` package). The undocumented bits 3 and 5 are not modelled.
+
+## Cheat sheet
+
+The in-app **Cheat sheet** page (`src/data/cheatsheet.js`) lists the supported instructions and common patterns. When the supported instruction set changes, update it too; `npm test` assembles and runs every example on it.

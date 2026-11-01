@@ -226,3 +226,15 @@ test.describe('every challenge can be solved in the browser', () => {
     })
   }
 })
+
+test.describe('cheat sheet', () => {
+  test('opens from the nav bar, shows examples, and returns to the trainer', async ({ page }) => {
+    await page.getByRole('button', { name: 'Cheat sheet' }).click()
+    await expect(page.getByRole('heading', { name: 'Z80 cheat sheet' })).toBeVisible()
+    await expect(page.getByRole('article', { name: 'If / else' })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    await page.getByRole('button', { name: 'Back to challenges' }).click()
+    await expect(editor(page)).toBeVisible()
+  })
+})

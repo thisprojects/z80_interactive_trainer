@@ -1,7 +1,8 @@
-export default function NavBar({ challenges, selectedId, onSelect, onRun, onReset }) {
+export default function NavBar({ challenges, selectedId, onSelect, onRun, onReset, showCheatSheet = false, onToggleCheatSheet }) {
   return (
     <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-700 bg-slate-900 px-4 py-2">
       <h1 className="whitespace-nowrap text-lg font-bold tracking-tight text-emerald-400">Z80 Trainer</h1>
+      {!showCheatSheet && (
       <label className="flex items-center gap-2 text-sm text-slate-300">
         <span>Challenge</span>
         <select
@@ -17,7 +18,19 @@ export default function NavBar({ challenges, selectedId, onSelect, onRun, onRese
           ))}
         </select>
       </label>
+      )}
       <div className="ml-auto flex gap-2">
+        {onToggleCheatSheet && (
+          <button
+            type="button"
+            onClick={onToggleCheatSheet}
+            aria-pressed={showCheatSheet}
+            className="rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+          >
+            {showCheatSheet ? 'Back to challenges' : 'Cheat sheet'}
+          </button>
+        )}
+        {!showCheatSheet && (<>
         <button
           type="button"
           onClick={onReset}
@@ -33,6 +46,7 @@ export default function NavBar({ challenges, selectedId, onSelect, onRun, onRese
         >
           Run
         </button>
+        </>)}
       </div>
     </nav>
   )

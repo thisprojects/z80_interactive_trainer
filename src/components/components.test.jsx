@@ -6,6 +6,7 @@ import HintList, { Hint } from './Hint.jsx'
 import InstructionPane from './InstructionPane.jsx'
 import OutputPanel from './OutputPanel.jsx'
 import EditorPane from './EditorPane.jsx'
+import CheatSheet from './CheatSheet.jsx'
 
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, onChange }) => (
@@ -118,5 +119,33 @@ describe('accessibility and styling', () => {
     expect(screen.getAllByText('same')).toHaveLength(2)
     rerender(<InstructionPane challenge={{ ...challenge, difficulty: 'mystery' }} />)
     expect(screen.getByText('mystery').className).toContain('emerald')
+  })
+})
+
+describe('NavBar cheat sheet toggle', () => {
+  it('toggles the cheat sheet and hides the run controls while it is open', async () => {
+    const onToggle = vi.fn()
+    const props = { challenges: [{ id: 'a', title: 'Alpha' }], selectedId: 'a', onSelect: vi.fn(), onRun: vi.fn(), onReset: vi.fn(), onToggleCheatSheet: onToggle }
+    const { rerender } = render(<NavBar {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Cheat sheet' }))
+    expect(onToggle).toHaveBeenCalled()
+    rerender(<NavBar {...props} showCheatSheet />)
+    expect(screen.getByRole('button', { name: 'Back to challenges' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Select challenge')).not.toBeInTheDocument()
+  })
+})
+
+describe('CheatSheet', () => {
+  it('shows instructions and patterns, and filters instructions', async () => {
+    render(<CheatSheet />)
+    expect(screen.getByRole('article', { name: 'Counted loop with DJNZ' })).toBeInTheDocument()
+    expect(screen.getByText('DJNZ e')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Filter instructions'), 'ldir')
+    expect(screen.queryByText('DJNZ e')).not.toBeInTheDocument()
+    expect(screen.getAllByText(/^LDIR$/).length).toBeGreaterThan(0)
+    await userEvent.clear(screen.getByLabelText('Filter instructions'))
+    await userEvent.type(screen.getByLabelText('Filter instructions'), 'zzzz')
+    expect(screen.getByText(/No instructions match/)).toBeInTheDocument()
   })
 })
