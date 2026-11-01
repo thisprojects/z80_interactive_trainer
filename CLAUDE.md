@@ -15,3 +15,4 @@ Interactive Z80 assembly trainer: React + Vite + Tailwind, CodeMirror 6 editor, 
 - **Assembler/CPU:** keep output byte-identical to `pasmo` (`npm run check:assembler`) and flags identical to the Python `z80` package (`tools/compare_cpu.py`). Update `docs/assembler.md` when behaviour or the supported instruction set changes.
 - **Docs:** don't hard-code test counts or dates in prose; point at the command that prints them.
 - Don't import `solutions.js` from app code. Don't install packages outside the project or its venv without asking.
+- **Git:** never run `git commit` or `git push` (or otherwise publish to the remote). Leave changes uncommitted in the working tree; the owner commits and pushes.
