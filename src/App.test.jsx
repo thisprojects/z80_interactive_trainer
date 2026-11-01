@@ -22,16 +22,17 @@ describe('App', () => {
 
   it('lists every challenge in the dropdown and switches between them', async () => {
     render(<App />)
-    const select = screen.getByLabelText('Select challenge')
-    expect(within(select).getAllByRole('option')).toHaveLength(challenges.length)
-    await userEvent.selectOptions(select, challenges[1].id)
+    await userEvent.click(screen.getByRole('button', { name: /Select challenge/ }))
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(challenges.length)
+    await userEvent.click(screen.getByRole('option', { name: `2. ${challenges[1].title}` }))
     expect(screen.getByRole('heading', { name: challenges[1].title, level: 2 })).toBeInTheDocument()
     expect(screen.getByLabelText('editor')).toHaveValue(challenges[1].starterCode)
   })
 
   it.each(challenges.map((c) => [c.id, c]))('never shows the solution or hint text up front (%s)', async (id, challenge) => {
     render(<App />)
-    await userEvent.selectOptions(screen.getByLabelText('Select challenge'), id)
+    await userEvent.click(screen.getByRole('button', { name: /Select challenge/ }))
+    await userEvent.click(screen.getByRole('option', { name: `${challenges.findIndex((c) => c.id === id) + 1}. ${challenge.title}` }))
     for (const hint of challenge.hints) {
       expect(screen.queryByText(hint.body)).not.toBeInTheDocument()
     }

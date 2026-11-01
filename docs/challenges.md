@@ -6,6 +6,16 @@ Challenges live in `src/data/challenges.js`; the field-by-field schema is docume
 
 **The instruction pane says what to do, never how.** `description`, `task` and `explanation` must not give away the method or name the instruction that solves it. Method-level help belongs in `hints`, which stay hidden until the learner opens them. Order hints from a nudge to the near-answer.
 
+### Hints
+
+Hints are progressive: the first ones point at the idea or instruction, an "In outline" hint can give the plan in words, and the **last hint is always a spoiler** that shows a complete, commented solution:
+
+```js
+{ title: 'Spoiler: full solution', spoiler: true, body: 'One sentence on how it works.', code: `        ORG 0x8000\n        ...` }
+```
+
+The title must say "Spoiler" so learners know before opening it, and it must be the last hint. The app shows it in red and the code only appears once opened. A test runs the spoiler's `code` against the challenge's tests. The spoiler code is part of the shipped bundle, unlike `solutions.js`, which is still tests-only.
+
 ## Adding one
 
 1. Append an object to the array in `src/data/challenges.js`.

@@ -16,7 +16,9 @@
 //   task:        ['Each requirement as a short sentence', ...],
 //   explanation: 'Background on the concept, without giving the answer',
 //   starterCode: 'Z80 source shown in the editor',
-//   hints:       [{ title: 'Hint 1', body: '...' }],      // hidden until opened
+//   hints:       [{ title: 'Hint 1', body: '...' }, ...,  // hidden until opened; nudge first, near-answer last
+//                 { title: 'Spoiler: full solution', spoiler: true, body: '...', code: '...' }],
+//                                                        // the last hint is a spoiler: it shows a complete answer
 //   requires:    { call: { label: 'double', min: 3 } },  // optional: the program must define this
 //                                                        // label and CALL it at least `min` times
 //   tests: [{
@@ -27,7 +29,8 @@
 // }
 //
 // Every challenge also needs a working Z80 solution in solutions.js under the same
-// id. It is used by the unit tests only and is not shipped in the app bundle.
+// id. That file is used by the unit tests only and is not imported by the app. The
+// spoiler hint's `code` is shipped (hidden until the learner opens it); a test runs it.
 
 export const DIFFICULTIES = ['beginner', 'intermediate', 'advanced']
 export const CATEGORIES = ['basics', 'arithmetic', 'conditionals', 'loops', 'memory', 'subroutines', 'output']
@@ -56,6 +59,14 @@ export function validateChallenge(c) {
   }
   if (!Array.isArray(c.hints) || c.hints.length === 0 || !c.hints.every((h) => h && isString(h.title) && isString(h.body))) {
     errors.push('hints must be a non-empty array of { title, body }')
+  } else {
+    c.hints.forEach((h, i) => {
+      if (h.spoiler !== undefined && typeof h.spoiler !== 'boolean') errors.push(`hints[${i}].spoiler must be a boolean`)
+      if (h.spoiler && !isString(h.code)) errors.push(`hints[${i}] is a spoiler, so it needs a code string`)
+      if (!h.spoiler && h.code !== undefined) errors.push(`hints[${i}].code is only allowed on a spoiler hint`)
+      if (h.spoiler && i !== c.hints.length - 1) errors.push(`hints[${i}]: a spoiler must be the last hint`)
+      if (h.spoiler && !/spoiler/i.test(h.title)) errors.push(`hints[${i}]: a spoiler's title must say "Spoiler"`)
+    })
   }
   if (!Array.isArray(c.tests) || c.tests.length === 0) errors.push('tests must be a non-empty array')
   else {

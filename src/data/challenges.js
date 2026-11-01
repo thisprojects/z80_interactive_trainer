@@ -26,6 +26,15 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'The LD instruction copies a value into a destination: LD destination, source.' },
       { title: 'Hint 2', body: 'A number written directly in the instruction is called an immediate value.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'One LD loads the constant 42 into A.',
+        code: `        ORG 0x8000
+        LD A,42         ; load the constant 42 into A
+        HALT
+`,
+      },
     ],
     tests: [{ name: 'A equals 42', expect: { registers: { A: 42 } } }],
   },
@@ -41,6 +50,16 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'LD works between two registers: LD dest, source.' },
       { title: 'Hint 2', body: 'You will need two LD instructions.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Two loads copy B into C and D. B is only read, so it keeps its value.',
+        code: `        ORG 0x8000
+        LD C,B          ; C = B
+        LD D,B          ; D = B
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'B = 7', setup: { registers: { B: 7 } }, expect: { registers: { B: 7, C: 7, D: 7 } } },
@@ -59,6 +78,15 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'There is an ADD instruction that takes A as its first operand.' },
       { title: 'Hint 2', body: 'ADD A,B adds B to A.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'ADD A,B adds B to A and leaves the sum in A.',
+        code: `        ORG 0x8000
+        ADD A,B         ; A = A + B
+        HALT
+`,
+      },
     ],
     tests: [
       { name: '3 + 4', setup: { registers: { A: 3, B: 4 } }, expect: { registers: { A: 7 } } },
@@ -78,6 +106,15 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'The mnemonic for subtracting is SUB.' },
       { title: 'Hint 2', body: 'SUB B subtracts register B from A.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'SUB B subtracts B from A and leaves the difference in A.',
+        code: `        ORG 0x8000
+        SUB B           ; A = A - B
+        HALT
+`,
+      },
     ],
     tests: [
       { name: '10 - 3', setup: { registers: { A: 10, B: 3 } }, expect: { registers: { A: 7 } } },
@@ -96,6 +133,18 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'INC adds one to a register and DEC subtracts one.' },
       { title: 'Hint 2', body: 'INC and DEC change the register in place, so copy B first.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Copy B into C and D first, then change the copies so B is untouched.',
+        code: `        ORG 0x8000
+        LD C,B
+        INC C           ; C = B + 1
+        LD D,B
+        DEC D           ; D = B - 1
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'B = 5', setup: { registers: { B: 5 } }, expect: { registers: { B: 5, C: 6, D: 4 } } },
@@ -114,6 +163,16 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'There are instructions that operate on a single named bit of a register.' },
       { title: 'Hint 2', body: 'SET b,r turns a bit on. RES b,r turns it off.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'SET turns bit 7 on and RES turns bit 0 off. Other bits are not touched.',
+        code: `        ORG 0x8000
+        SET 7,A         ; bit 7 = 1
+        RES 0,A         ; bit 0 = 0
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'A = 0', setup: { registers: { A: 0 } }, expect: { registers: { A: 0x80 } } },
@@ -134,6 +193,16 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'OUT (port),A sends the value in A to a port.' },
       { title: 'Hint 2', body: 'Characters are just numbers. You can write a character in quotes, like \'Z\', anywhere a number goes.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Load the character code into A, then send A to port 0.',
+        code: `        ORG 0x8000
+        LD A,'Z'        ; the character code for Z
+        OUT (0),A       ; port 0 prints a character
+        HALT
+`,
+      },
     ],
     tests: [{ name: 'prints Z', expect: { output: 'Z' } }],
   },
@@ -150,6 +219,23 @@ const challenges = [
       { title: 'Hint 1', body: 'You can print each character separately, but that is a lot of repeated code.' },
       { title: 'Hint 2', body: 'DB "text" stores a string in memory. Add a 0 after it to mark the end.' },
       { title: 'Hint 3', body: 'A register pair such as HL can point at a byte in memory. LD A,(HL) reads that byte, INC HL moves to the next.' },
+      { title: 'Hint 4', body: 'In outline: point HL at the text. Then loop: read the byte at HL into A, stop if it is 0, otherwise print it, move HL on by one, and go round again. The text and its 0 go after HALT.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'HL walks along the string. OR A sets the Z flag when the byte is the 0 terminator, which ends the loop.',
+        code: `        ORG 0x8000
+        LD HL,msg       ; HL points at the first character
+next:   LD A,(HL)       ; read the character
+        OR A            ; Z is set if it is the 0 terminator
+        JR Z,done
+        OUT (0),A       ; print it
+        INC HL          ; move to the next character
+        JR next
+done:   HALT
+msg:    DB "Hello, Z80!",0
+`,
+      },
     ],
     tests: [{ name: 'prints the greeting', expect: { output: 'Hello, Z80!' } }],
   },
@@ -165,6 +251,16 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'OUT only sends the A register.' },
       { title: 'Hint 2', body: 'Copy B into A first.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'OUT only sends A, so copy B into A and use port 1 to print it as a decimal number.',
+        code: `        ORG 0x8000
+        LD A,B          ; OUT can only send A
+        OUT (1),A       ; port 1 prints A as a number
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'B = 42', setup: { registers: { B: 42 } }, expect: { output: '42' } },
@@ -186,6 +282,23 @@ const challenges = [
       { title: 'Hint 1', body: 'A loop needs a label to jump back to, a counter in a register, and a conditional jump that decides whether to go round again.' },
       { title: 'Hint 2', body: 'CP compares A to a value and sets the flags. JR NZ and JR Z jump depending on the result.' },
       { title: 'Hint 3', body: 'OUT (2),A prints a newline whatever A contains.' },
+      { title: 'Hint 4', body: 'In outline: start a counter at 1. Each time round, print it and a newline, add 1, then compare it with 11 and go round again unless it has reached 11.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'B is the counter. Stopping when it reaches 11 means the loop body runs for 1 to 10.',
+        code: `        ORG 0x8000
+        LD B,1          ; counter
+loop:   LD A,B
+        OUT (1),A       ; print the number
+        OUT (2),A       ; print a newline
+        INC B
+        LD A,B
+        CP 11           ; reached 11?
+        JR NZ,loop      ; no: repeat
+        HALT
+`,
+      },
     ],
     tests: [{ name: 'prints 1 to 10', expect: { output: lines(range(1, 10)) } }],
   },
@@ -201,6 +314,28 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'DJNZ decrements B and jumps if the result is not zero.' },
       { title: 'Hint 2', body: 'DJNZ ends the loop when B reaches 0, so think about how your printed value relates to B.' },
+      { title: 'Hint 3', body: 'In outline: put 10 in B. Each time round, copy B to A, print it and a newline; DJNZ then subtracts 1 and repeats until B is 0. Afterwards print the word with a loop over a 0-terminated string.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'DJNZ counts B down from 10 to 1, so B is exactly the number to print. A second loop then prints the message.',
+        code: `        ORG 0x8000
+        LD B,10
+loop:   LD A,B
+        OUT (1),A       ; print the number
+        OUT (2),A       ; print a newline
+        DJNZ loop       ; B = B - 1, repeat while B != 0
+        LD HL,msg
+next:   LD A,(HL)
+        OR A            ; reached the 0 terminator?
+        JR Z,done
+        OUT (0),A
+        INC HL
+        JR next
+done:   HALT
+msg:    DB "Liftoff!",0
+`,
+      },
     ],
     tests: [{ name: 'counts down and launches', expect: { output: lines([...range(1, 10).reverse(), 'Liftoff!']) } }],
   },
@@ -216,6 +351,18 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'Start with a running total of zero. XOR A is a quick way to zero A.' },
       { title: 'Hint 2', body: 'DJNZ loops while decrementing B. B itself is a number you want to add.' },
+      { title: 'Hint 3', body: 'In outline: clear A to 0. Each time round, add B to A. DJNZ then subtracts 1 from B and repeats while B is not 0, so you add N, N-1, ... 1.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'B counts down from N to 1 and is added to the total each time round.',
+        code: `        ORG 0x8000
+        XOR A           ; A = 0, the running total
+loop:   ADD A,B         ; add the current B
+        DJNZ loop       ; B = B - 1, repeat while B != 0
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'N = 1', setup: { registers: { B: 1 } }, expect: { registers: { A: 1 } } },
@@ -237,6 +384,21 @@ const challenges = [
       { title: 'Hint 1', body: 'Multiplication is repeated addition: start a running total at zero and add C to it, B times.' },
       { title: 'Hint 2', body: 'DJNZ decrements before it tests, so a counter of 0 would loop 256 times.' },
       { title: 'Hint 3', body: 'INC B followed by DEC B leaves B unchanged but updates the Z flag.' },
+      { title: 'Hint 4', body: 'In outline: clear A, then add C to it B times with a DJNZ loop. If B is 0 you must skip the loop altogether, so test B before the loop starts.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'The INC B / DEC B pair sets Z when B is 0 without changing B, which lets the program skip the loop for a multiplier of zero.',
+        code: `        ORG 0x8000
+        XOR A           ; A = 0, the running total
+        INC B
+        DEC B           ; B unchanged, but Z is set if B = 0
+        JR Z,done       ; multiplying by 0: A is already 0
+loop:   ADD A,C         ; add C
+        DJNZ loop       ; ...B times
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: '3 x 4', setup: { registers: { B: 3, C: 4 } }, expect: { registers: { A: 12 } } },
@@ -258,6 +420,18 @@ const challenges = [
       { title: 'Hint 1', body: 'A comparison sets the flags and a conditional jump reads them. CP B compares A with B without changing either register.' },
       { title: 'Hint 2', body: 'After CP B, the Carry flag is set when A is less than B.' },
       { title: 'Hint 3', body: 'JR C and JR NC jump depending on the Carry flag.' },
+      { title: 'Hint 4', body: 'In outline: compare A with B. If A is not smaller (no carry) you are done; otherwise copy B into A.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'CP B sets Carry when A < B. If Carry is clear, A is already the larger value and the copy is skipped.',
+        code: `        ORG 0x8000
+        CP B            ; compare A with B (Carry set if A < B)
+        JR NC,done      ; A >= B: A is already the larger
+        LD A,B          ; otherwise take B
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: 'A smaller', setup: { registers: { A: 3, B: 9 } }, expect: { registers: { A: 9 } } },
@@ -279,6 +453,19 @@ const challenges = [
       { title: 'Hint 1', body: 'Look at which bit differs between 4 (100) and 5 (101).' },
       { title: 'Hint 2', body: 'AND with a mask keeps only the bits you ask for, and sets the Z flag if the result is zero.' },
       { title: 'Hint 3', body: 'BIT 0,A sets the Z flag when bit 0 is clear.' },
+      { title: 'Hint 4', body: 'In outline: test bit 0 of A. If it is clear the number is even. Put 1 in B before the test so you only need to overwrite it for the odd case.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'BIT 0,A sets Z when bit 0 is clear (even). LD does not change flags, so B can be loaded before the test.',
+        code: `        ORG 0x8000
+        LD B,1          ; assume even
+        BIT 0,A         ; Z is set if bit 0 is 0 (even)
+        JR Z,done
+        LD B,0          ; odd
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: '4 is even', setup: { registers: { A: 4 } }, expect: { registers: { B: 1 } } },
@@ -299,6 +486,18 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'First work out whether the number is negative. In two\'s complement the top bit (bit 7) is 1 for negative values.' },
       { title: 'Hint 2', body: 'NEG turns A into 0 - A.' },
+      { title: 'Hint 3', body: 'In outline: test bit 7 of A. If it is clear the number is already positive and you are done; otherwise negate it.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'BIT 7,A sets Z when the number is non-negative. NEG then turns a negative number into its positive value.',
+        code: `        ORG 0x8000
+        BIT 7,A         ; Z is set if bit 7 is 0 (positive)
+        JR Z,done
+        NEG             ; A = 0 - A
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: '-5 becomes 5', setup: { registers: { A: 251 } }, expect: { registers: { A: 5 } } },
@@ -327,6 +526,54 @@ const challenges = [
       { title: 'Hint 2', body: 'Use a second counter for 5.' },
       { title: 'Hint 3', body: 'Printing a word is a loop of its own. Put it in a subroutine with CALL and RET.' },
       { title: 'Hint 4', body: 'Remember whether either word was printed so you know whether to print the number.' },
+      { title: 'Hint 5', body: 'In outline: keep the number in B, a countdown from 3 in C and a countdown from 5 in D, and a flag in E recording whether a word was printed. For each number: decrement C and D; when one reaches 0, reload it, print its word and set a bit in E. If E is still 0, print the number. Then a newline, and stop after the limit.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'The limit arrives in H, but HL is needed for the strings, so it is saved to memory first. Counters replace division, and a shared PUTS routine prints each word.',
+        code: `        ORG 0x8000
+        LD A,H
+        LD (limit),A    ; save the limit: HL is needed below
+        LD B,1          ; current number
+        LD C,3          ; counts down to the next multiple of 3
+        LD D,5          ; counts down to the next multiple of 5
+loop:   LD E,0          ; E = 0: nothing printed yet
+        DEC C
+        JR NZ,not3
+        LD C,3          ; reload
+        SET 0,E         ; remember we printed Fizz
+        LD HL,fizz
+        CALL puts
+not3:   DEC D
+        JR NZ,not5
+        LD D,5
+        SET 1,E         ; remember we printed Buzz
+        LD HL,buzz
+        CALL puts
+not5:   LD A,E
+        OR A            ; was a word printed?
+        JR NZ,eol
+        LD A,B
+        OUT (1),A       ; no: print the number
+eol:    OUT (2),A       ; newline
+        LD A,(limit)
+        CP B            ; finished?
+        JR Z,finish
+        INC B
+        JR loop
+finish: HALT
+
+puts:   LD A,(HL)       ; print a 0-terminated string at HL
+        OR A
+        RET Z
+        OUT (0),A
+        INC HL
+        JR puts
+fizz:   DB "Fizz",0
+buzz:   DB "Buzz",0
+limit:  DB 0
+`,
+      },
     ],
     tests: [
       { name: 'N = 15', setup: { registers: { H: 15 } }, expect: { output: fizzbuzz(15) } },
@@ -354,6 +601,18 @@ const challenges = [
       { title: 'Hint 1', body: 'LD (HL),A stores A into the byte at the address in HL.' },
       { title: 'Hint 2', body: 'INC HL moves the pointer along by one byte.' },
       { title: 'Hint 3', body: 'DJNZ makes a simple counted loop.' },
+      { title: 'Hint 4', body: 'In outline: loop B times. Each time round, store A at the address in HL and move HL on by one.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'HL is the write pointer and B is the count; DJNZ ends the loop after B bytes.',
+        code: `        ORG 0x8000
+loop:   LD (HL),A       ; store A at the address in HL
+        INC HL          ; next address
+        DJNZ loop       ; repeat B times
+        HALT
+`,
+      },
     ],
     tests: [
       {
@@ -383,6 +642,15 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'Block transfer instructions use HL, DE and BC as source, destination and count.' },
       { title: 'Hint 2', body: 'LDIR repeats until BC reaches zero.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'LDIR copies BC bytes from the address in HL to the address in DE, so all the work is one instruction.',
+        code: `        ORG 0x8000
+        LDIR            ; copy BC bytes from (HL) to (DE)
+        HALT
+`,
+      },
     ],
     tests: [
       {
@@ -410,6 +678,18 @@ const challenges = [
       { title: 'Hint 1', body: 'Start with A = 0.' },
       { title: 'Hint 2', body: 'ADD A,(HL) adds the byte at the address in HL to A.' },
       { title: 'Hint 3', body: 'Keep HL as a pointer that moves forward after each element, and use B as a counter that says when to stop (DJNZ helps).' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'A is the running total, HL walks the array and B counts the elements.',
+        code: `        ORG 0x8000
+        XOR A           ; A = 0, the running total
+loop:   ADD A,(HL)      ; add the element at HL
+        INC HL          ; next element
+        DJNZ loop       ; repeat B times
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'five numbers', setup: { registers: { HL: 0x9000, B: 5 }, memory: { 0x9000: [1, 2, 3, 4, 5] } }, expect: { registers: { A: 15 } } },
@@ -430,6 +710,24 @@ const challenges = [
       { title: 'Hint 1', body: 'Remember the best value seen so far, starting with the first element, and replace it whenever something bigger turns up.' },
       { title: 'Hint 2', body: 'CP (HL) compares A with the byte at HL.' },
       { title: 'Hint 3', body: 'After CP, the Carry flag tells you whether A was smaller.' },
+      { title: 'Hint 4', body: 'In outline: load the first element into A as the best so far, then loop over the remaining B-1 elements. Compare each with A and replace A when the element is bigger. Allow for an array of just one element.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'A holds the best value so far. CP (HL) sets Carry when A < the element, so a replacement is needed only when the jump is not taken.',
+        code: `        ORG 0x8000
+        LD A,(HL)       ; best so far = first element
+        INC HL
+        DEC B           ; elements left to look at
+        JR Z,done       ; only one element
+loop:   CP (HL)         ; Carry set if A < element
+        JR NC,skip      ; A >= element: keep A
+        LD A,(HL)       ; new best
+skip:   INC HL
+        DJNZ loop
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: 'mixed values', setup: { registers: { HL: 0x9000, B: 4 }, memory: { 0x9000: [3, 9, 2, 7] } }, expect: { registers: { A: 9 } } },
@@ -450,6 +748,21 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'Zero is the only value for which OR A leaves the Z flag set.' },
       { title: 'Hint 2', body: 'Load each element into A, then test it. Only increase your counter when the test succeeds, so jump over the INC otherwise.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'C counts zeros. OR A sets Z only when the element is 0, otherwise the INC C is jumped over.',
+        code: `        ORG 0x8000
+        LD C,0          ; count of zeros
+loop:   LD A,(HL)
+        OR A            ; Z is set if the element is 0
+        JR NZ,skip
+        INC C           ; found a zero
+skip:   INC HL
+        DJNZ loop
+        HALT
+`,
+      },
     ],
     tests: [
       { name: 'three zeros', setup: { registers: { HL: 0x9000, B: 5 }, memory: { 0x9000: [0, 1, 0, 2, 0] } }, expect: { registers: { C: 3 } } },
@@ -469,6 +782,22 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'Step along the string one byte at a time until you find the terminator.' },
       { title: 'Hint 2', body: 'Count the steps in B.' },
+      { title: 'Hint 3', body: 'In outline: set B to 0. Then loop: read the byte at HL, stop if it is 0, otherwise add 1 to B and move HL on.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'B counts characters until the 0 terminator is found.',
+        code: `        ORG 0x8000
+        LD B,0          ; length so far
+loop:   LD A,(HL)
+        OR A            ; reached the 0 terminator?
+        JR Z,done
+        INC B
+        INC HL
+        JR loop
+done:   HALT
+`,
+      },
     ],
     tests: [
       { name: 'Hello', setup: { registers: { HL: 0x9000 }, memory: { 0x9000: [...bytesOf('Hello'), 0] } }, expect: { registers: { B: 5 } } },
@@ -494,6 +823,20 @@ const challenges = [
       { title: 'Hint 1', body: 'Put the subroutine after HALT so the main program does not run into it.' },
       { title: 'Hint 2', body: 'Doubling is the same as adding a number to itself.' },
       { title: 'Hint 3', body: 'CALL label runs a subroutine. End the subroutine with RET, which returns to the instruction after the CALL.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'The subroutine lives after HALT and ends with RET. The main program CALLs it three times.',
+        code: `        ORG 0x8000
+        CALL double
+        CALL double
+        CALL double
+        HALT
+
+double: ADD A,A         ; A = A * 2
+        RET
+`,
+      },
     ],
     tests: [
       { name: 'A = 1', setup: { registers: { A: 1 } }, expect: { registers: { A: 8 } } },
@@ -513,6 +856,17 @@ const challenges = [
     hints: [
       { title: 'Hint 1', body: 'If you copy B over C straight away, the old value of C is lost.' },
       { title: 'Hint 2', body: 'Park one value in A first. Swapping needs a third place to hold one value temporarily, like swapping two glasses of water.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'A is used as a temporary place to hold one value while the other is moved.',
+        code: `        ORG 0x8000
+        LD A,B          ; park B
+        LD B,C          ; B = old C
+        LD C,A          ; C = old B
+        HALT
+`,
+      },
     ],
     tests: [
       { name: '1 and 2', setup: { registers: { B: 1, C: 2 } }, expect: { registers: { B: 2, C: 1 } } },
@@ -537,6 +891,37 @@ const challenges = [
       { title: 'Hint 2', body: 'Keep one pointer in DE and one in HL. ADD HL,BC moves HL forward by BC bytes, so the last byte is at start + length - 1.' },
       { title: 'Hint 3', body: 'Stop when the two pointers meet or cross. Compare the high bytes first, then the low bytes, with CP.' },
       { title: 'Hint 4', body: 'LD A,(DE) and LD C,(HL) read the two bytes, and LD (HL),A and LD (DE),A write them back. Only A can be used for the (DE) forms.' },
+      { title: 'Hint 5', body: 'In outline: set DE to the start and HL to the last byte. Repeat: if HL is no longer above DE, stop; otherwise swap the two bytes, move DE up and HL down.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'DE and HL are the two ends. The loop stops when HL meets or passes DE, so the middle byte of an odd-length string stays put.',
+        code: `        ORG 0x8000
+        LD D,H
+        LD E,L          ; DE = start of the string
+        LD C,B
+        LD B,0          ; BC = length
+        ADD HL,BC
+        DEC HL          ; HL = address of the last byte
+loop:   LD A,H          ; compare HL with DE, high bytes first
+        CP D
+        JR C,done       ; HL < DE: the pointers have crossed
+        JR NZ,swap      ; HL > DE: keep going
+        LD A,L
+        CP E
+        JR C,done
+        JR Z,done       ; HL = DE: the middle byte
+swap:   LD A,(DE)
+        LD C,(HL)
+        LD (HL),A       ; front byte goes to the back
+        LD A,C
+        LD (DE),A       ; back byte goes to the front
+        INC DE
+        DEC HL
+        JR loop
+done:   HALT
+`,
+      },
     ],
     tests: [
       {
@@ -577,6 +962,18 @@ const challenges = [
       { title: 'Hint 1', body: 'The stack is a block of memory that PUSH and POP use to save and restore register pairs.' },
       { title: 'Hint 2', body: 'The last pair pushed is the first pair popped. PUSH BC then POP DE moves a value between pairs.' },
       { title: 'Hint 3', body: 'Push both pairs, then pop them back in the opposite order.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Pushing BC then DE and popping them into BC then DE reverses the order, which swaps the pairs.',
+        code: `        ORG 0x8000
+        PUSH BC
+        PUSH DE
+        POP BC          ; BC gets the old DE
+        POP DE          ; DE gets the old BC
+        HALT
+`,
+      },
     ],
     tests: [
       {

@@ -25,6 +25,17 @@ describe('challenges data', () => {
       expect(result.passed).toBe(true)
     })
 
+    it('ends with a spoiler hint whose code is a working solution', () => {
+      const last = challenge.hints.at(-1)
+      expect(last.spoiler).toBe(true)
+      expect(last.title).toMatch(/spoiler/i)
+      expect(challenge.hints.length).toBeGreaterThanOrEqual(2) // pointers come before the answer
+      expect(challenge.hints.slice(0, -1).some((h) => h.spoiler)).toBe(false)
+      const result = runChallenge(challenge, last.code)
+      expect(result.error).toBeUndefined()
+      expect(result.passed).toBe(true)
+    })
+
     it('the starter code does not already pass', () => {
       const result = runChallenge(challenge, challenge.starterCode)
       expect(result.passed).toBe(false)

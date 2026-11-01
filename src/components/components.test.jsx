@@ -7,6 +7,7 @@ import InstructionPane from './InstructionPane.jsx'
 import OutputPanel from './OutputPanel.jsx'
 import EditorPane from './EditorPane.jsx'
 import CheatSheet from './CheatSheet.jsx'
+import ChallengeMenu from './ChallengeMenu.jsx'
 
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, onChange }) => (
@@ -25,8 +26,9 @@ describe('NavBar', () => {
   it('lists challenges and reports changes and clicks', async () => {
     const onSelect = vi.fn(); const onRun = vi.fn(); const onReset = vi.fn()
     render(<NavBar challenges={list} selectedId="a" onSelect={onSelect} onRun={onRun} onReset={onReset} />)
+    await userEvent.click(screen.getByRole('button', { name: /Select challenge/ }))
     expect(screen.getByRole('option', { name: '1. Alpha' })).toBeInTheDocument()
-    await userEvent.selectOptions(screen.getByLabelText('Select challenge'), 'b')
+    await userEvent.click(screen.getByRole('option', { name: '2. Beta' }))
     expect(onSelect).toHaveBeenCalledWith('b')
     await userEvent.click(screen.getByRole('button', { name: 'Run' }))
     await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
@@ -132,7 +134,7 @@ describe('NavBar cheat sheet toggle', () => {
     rerender(<NavBar {...props} showCheatSheet />)
     expect(screen.getByRole('button', { name: 'Back to challenges' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Run' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Select challenge')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Select challenge/ })).not.toBeInTheDocument()
   })
 })
 
@@ -147,5 +149,66 @@ describe('CheatSheet', () => {
     await userEvent.clear(screen.getByLabelText('Filter instructions'))
     await userEvent.type(screen.getByLabelText('Filter instructions'), 'zzzz')
     expect(screen.getByText(/No instructions match/)).toBeInTheDocument()
+  })
+})
+
+describe('Spoiler hint', () => {
+  it('hides the code until opened, then shows it', async () => {
+    render(<Hint title="Spoiler: full solution" body="How it works" spoiler code={'LD A,42\nHALT'} />)
+    expect(screen.queryByText(/LD A,42/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Spoiler: full solution/ }))
+    expect(screen.getByText('How it works')).toBeInTheDocument()
+    expect(screen.getByText(/LD A,42/)).toBeInTheDocument()
+  })
+})
+
+describe('ChallengeMenu', () => {
+  const list = [{ id: 'a', title: 'Alpha' }, { id: 'b', title: 'Beta' }, { id: 'c', title: 'Gamma' }]
+  const setup = () => {
+    const onSelect = vi.fn()
+    render(<><span>outside</span><ChallengeMenu challenges={list} selectedId="b" onSelect={onSelect} /></>)
+    return { onSelect, button: screen.getByRole('button', { name: 'Select challenge: 2. Beta' }) }
+  }
+
+  it('opens below the button, marks the current challenge, and closes on an outside click or Escape', async () => {
+    const { button } = setup()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.click(button)
+    expect(screen.getByRole('listbox').className).toContain('top-full')
+    expect(screen.getByRole('option', { name: '2. Beta' })).toHaveAttribute('aria-selected', 'true')
+    await userEvent.click(screen.getByText('outside'))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.click(button)
+    await userEvent.click(button)
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('works from the keyboard', async () => {
+    const { onSelect, button } = setup()
+    button.focus()
+    await userEvent.keyboard('{ArrowDown}') // opens on the current item
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}') // clamps at the last item
+    expect(onSelect).toHaveBeenLastCalledWith('c')
+    await userEvent.keyboard('{Enter}{Home}{Enter}')
+    expect(onSelect).toHaveBeenLastCalledWith('a')
+    await userEvent.keyboard(' {End}{ArrowUp}{ArrowUp}{ArrowUp}{Enter}')
+    expect(onSelect).toHaveBeenLastCalledWith('a')
+    await userEvent.keyboard('{ArrowUp}')
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    await userEvent.keyboard('{Tab}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}{Home}') // harmless while closed
+  })
+
+  it('selects with the mouse', async () => {
+    const { onSelect, button } = setup()
+    await userEvent.click(button)
+    await userEvent.hover(screen.getByRole('option', { name: '3. Gamma' }))
+    await userEvent.click(screen.getByRole('option', { name: '3. Gamma' }))
+    expect(onSelect).toHaveBeenCalledWith('c')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })

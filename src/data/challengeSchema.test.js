@@ -55,4 +55,15 @@ describe('validateChallenges', () => {
     expect(errors.some((e) => e.startsWith(`challenge ${a.id}: title`))).toBe(true)
     expect(errors.some((e) => e.startsWith('challenge 2:'))).toBe(true)
   })
+  it('validates spoiler hints', () => {
+    const c = good()
+    c.hints = [{ title: 'Spoiler: x', body: 'b', spoiler: true }, { title: 'Hint 2', body: 'b', code: 'x' }, { title: 'Spoiler: y', body: 'b', spoiler: 'yes', code: 'x' }]
+    const errors = validateChallenge(c).join('\n')
+    expect(errors).toContain('needs a code string')
+    expect(errors).toContain('only allowed on a spoiler hint')
+    expect(errors).toContain('must be a boolean')
+    expect(errors).toContain('must be the last hint')
+    c.hints = [{ title: 'Answer', body: 'b', spoiler: true, code: 'x' }]
+    expect(validateChallenge(c).join()).toContain('title must say "Spoiler"')
+  })
 })

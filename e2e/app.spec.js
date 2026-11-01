@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import challenges from '../src/data/challenges.js'
 import solutions from '../src/data/solutions.js'
-import { setCode, run, results, choose, editor } from './helpers.js'
+import { setCode, run, results, choose, editor, challengeMenu } from './helpers.js'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
@@ -36,9 +36,29 @@ test.describe('layout', () => {
   })
 })
 
+test.describe('challenge menu', () => {
+  for (const [width, height] of [[1280, 720], [390, 740], [320, 568]]) {
+    test(`opens below its button, inside the page, at ${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      const button = challengeMenu(page)
+      await button.click()
+      const list = page.getByRole('listbox')
+      await expect(list).toBeVisible()
+      const b = await button.boundingBox()
+      const l = await list.boundingBox()
+      expect(l.y).toBeGreaterThanOrEqual(b.y + b.height - 1)
+      expect(l.x).toBeGreaterThanOrEqual(0)
+      expect(l.x + l.width).toBeLessThanOrEqual(width)
+      expect(l.y + l.height).toBeLessThanOrEqual(height)
+    })
+  }
+})
+
 test.describe('instructions', () => {
   test('lists every challenge and switches between them', async ({ page }) => {
-    await expect(page.getByLabel('Select challenge').locator('option')).toHaveCount(challenges.length)
+    await challengeMenu(page).click()
+    await expect(page.getByRole('option')).toHaveCount(challenges.length)
+    await page.keyboard.press('Escape')
     await choose(page, challenges[3].id)
     await expect(page.getByRole('heading', { level: 2, name: challenges[3].title })).toBeVisible()
   })
@@ -52,15 +72,26 @@ test.describe('instructions', () => {
     await expect(page.getByText(first.body)).toHaveCount(0)
   })
 
-  test('ships no reference solution in the production bundle', async ({ page }) => {
+  test('does not bundle the solutions.js reference solutions', async ({ page }) => {
     const urls = await page.evaluate(() => [...document.scripts].map((el) => el.src).filter(Boolean))
     expect(urls.length).toBeGreaterThan(0)
     const bundle = (await Promise.all(urls.map(async (u) => (await page.request.get(u)).text()))).join('\n')
     expect(bundle).toContain('Hello, Z80!') // control: we really did download the app code
+    // The annotated code inside each "Spoiler" hint is shipped on purpose (hidden until opened);
+    // what must stay out is solutions.js itself, which tests import and app code must not.
     for (const [id, src] of Object.entries(solutions)) {
       expect(bundle, `solution ${id}`).not.toContain(src)
       expect(bundle, `solution ${id} (escaped)`).not.toContain(JSON.stringify(src).slice(1, -1))
     }
+  })
+
+  test('marks the solution hint as a spoiler and hides its code until opened', async ({ page }) => {
+    const spoiler = challenges[0].hints.at(-1)
+    const button = page.getByRole('button', { name: spoiler.title })
+    await expect(button).toBeVisible()
+    await expect(page.locator('pre')).toHaveCount(0)
+    await button.click()
+    await expect(page.locator('pre')).toContainText(spoiler.code.split('\n')[1].trim())
   })
 
   test('never shows a reference solution on the page', async ({ page }) => {
@@ -186,7 +217,7 @@ test.describe('saving', () => {
     await choose(page, 'add-two')
     await setCode(page, '        ORG 0x8000\n        ADD A,B ; my work\n        HALT\n')
     await page.reload()
-    await expect(page.getByLabel('Select challenge')).toHaveValue('add-two')
+    await expect(challengeMenu(page)).toContainText('Add Them Up')
     await expect(editor(page)).toContainText('my work')
   })
 

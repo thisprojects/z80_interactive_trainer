@@ -12,4 +12,8 @@ export async function setCode(page, code) {
 
 export const run = (page) => page.getByRole('button', { name: 'Run' }).click()
 export const results = (page) => page.getByRole('region', { name: 'Results' })
-export const choose = (page, id) => page.getByLabel('Select challenge').selectOption(id)
+export const challengeMenu = (page) => page.getByRole('button', { name: /^Select challenge/ })
+export async function choose(page, id) {
+  await challengeMenu(page).click()
+  await page.locator(`[role=option][data-value="${id}"]`).click()
+}
