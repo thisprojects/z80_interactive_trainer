@@ -1,4 +1,4 @@
-// Z80 CPU core covering the beginner instruction subset (real Z80 opcode encoding).
+// Z80 CPU core covering the trainer's instruction subset (real Z80 opcode encoding).
 
 export const FLAG = { S: 0x80, Z: 0x40, H: 0x10, PV: 0x04, N: 0x02, C: 0x01 }
 
@@ -24,6 +24,9 @@ export class Z80Cpu {
     // r is indexed by the Z80 register encoding: B C D E H L (unused) A
     this.r = new Uint8Array(8)
     this.f = 0
+    this.ix = 0
+    this.iy = 0
+    this.alt = { r: new Uint8Array(8), f: 0 } // the shadow set swapped by EXX and EX AF,AF'
     this.sp = 0xf000
     this.pc = 0
     this.halted = false
@@ -166,13 +169,60 @@ export class Z80Cpu {
     return res
   }
 
-  addHL(v) {
-    const hl = this.hl
-    const res = hl + v
-    this.setFlag(FLAG.H, (hl & 0xfff) + (v & 0xfff) > 0xfff)
+  // 16-bit ADD (HL, IX or IY as the base): H, N, C only
+  add16(base, v) {
+    const res = base + v
+    this.setFlag(FLAG.H, (base & 0xfff) + (v & 0xfff) > 0xfff)
     this.setFlag(FLAG.N, false)
     this.setFlag(FLAG.C, res > 0xffff)
-    this.hl = res
+    return res & 0xffff
+  }
+
+  addHL(v) {
+    this.hl = this.add16(this.hl, v)
+  }
+
+  // ADC HL,rr / SBC HL,rr: all of S Z H P/V N C
+  adc16(v, carry) {
+    const hl = this.hl
+    const res = hl + v + carry
+    const r16 = res & 0xffff
+    this.setFlag(FLAG.S, r16 & 0x8000)
+    this.setFlag(FLAG.Z, r16 === 0)
+    this.setFlag(FLAG.H, (hl & 0xfff) + (v & 0xfff) + carry > 0xfff)
+    this.setFlag(FLAG.PV, ((hl ^ r16) & (v ^ r16) & 0x8000) !== 0)
+    this.setFlag(FLAG.N, false)
+    this.setFlag(FLAG.C, res > 0xffff)
+    this.hl = r16
+  }
+
+  sbc16(v, carry) {
+    const hl = this.hl
+    const res = hl - v - carry
+    const r16 = res & 0xffff
+    this.setFlag(FLAG.S, r16 & 0x8000)
+    this.setFlag(FLAG.Z, r16 === 0)
+    this.setFlag(FLAG.H, (hl & 0xfff) - (v & 0xfff) - carry < 0)
+    this.setFlag(FLAG.PV, ((hl ^ v) & (hl ^ r16) & 0x8000) !== 0)
+    this.setFlag(FLAG.N, true)
+    this.setFlag(FLAG.C, res < 0)
+    this.hl = r16
+  }
+
+  // DAA: adjust A after a BCD add or subtract
+  daa() {
+    const a = this.a
+    const n = this.flag(FLAG.N)
+    let adjust = 0
+    let carry = this.flag(FLAG.C)
+    if (this.flag(FLAG.H) || (a & 0xf) > 9) adjust |= 0x06
+    if (carry || a > 0x99) { adjust |= 0x60; carry = true }
+    const res = (n ? a - adjust : a + adjust) & 0xff
+    this.a = res
+    this.szFlags(res)
+    this.setFlag(FLAG.H, n ? this.flag(FLAG.H) && (a & 0xf) < 6 : (a & 0xf) > 9)
+    this.setFlag(FLAG.PV, parity(res))
+    this.setFlag(FLAG.C, carry)
   }
 
   // CB-prefix rotate/shift; sets S Z P C and returns the result
@@ -203,21 +253,23 @@ export class Z80Cpu {
     const reg = op & 7
     const bit = (op >> 3) & 7
     const group = op >> 6
-    const v = this.getR(reg)
-    if (group === 0) {
-      this.setR(reg, this.shift(bit, v))
-    } else if (group === 1) {
+    const out = this.cbApply(group, bit, this.getR(reg))
+    if (out !== null) this.setR(reg, out)
+  }
+
+  // Shared by CB and DD/FD CB: returns the byte to write back, or null for BIT.
+  cbApply(group, bit, v) {
+    if (group === 0) return this.shift(bit, v)
+    if (group === 1) {
       const zero = (v & (1 << bit)) === 0
       this.setFlag(FLAG.Z, zero)
       this.setFlag(FLAG.PV, zero)
       this.setFlag(FLAG.S, bit === 7 && !zero)
       this.setFlag(FLAG.H, true)
       this.setFlag(FLAG.N, false)
-    } else if (group === 2) {
-      this.setR(reg, v & ~(1 << bit))
-    } else {
-      this.setR(reg, v | (1 << bit))
+      return null
     }
+    return group === 2 ? v & ~(1 << bit) : v | (1 << bit)
   }
 
   execED() {
@@ -229,9 +281,8 @@ export class Z80Cpu {
         this.a = this.sub8(a, 0)
         break
       }
-      case 0xb0: // LDIR
-      case 0xb8: { // LDDR
-        const step = op === 0xb0 ? 1 : -1
+      case 0xa0: case 0xa8: case 0xb0: case 0xb8: { // LDI LDD LDIR LDDR
+        const step = op & 8 ? -1 : 1
         this.mem[this.de] = this.mem[this.hl]
         this.hl = this.hl + step
         this.de = this.de + step
@@ -239,12 +290,79 @@ export class Z80Cpu {
         this.setFlag(FLAG.H, false)
         this.setFlag(FLAG.N, false)
         this.setFlag(FLAG.PV, this.bc !== 0)
-        if (this.bc !== 0) this.pc = (this.pc - 2) & 0xffff
+        if (op & 0x10 && this.bc !== 0) this.pc = (this.pc - 2) & 0xffff
+        break
+      }
+      case 0xa1: case 0xa9: case 0xb1: case 0xb9: { // CPI CPD CPIR CPDR
+        const step = op & 8 ? -1 : 1
+        const v = this.mem[this.hl]
+        const res = (this.a - v) & 0xff
+        this.szFlags(res)
+        this.setFlag(FLAG.H, (this.a & 0xf) < (v & 0xf))
+        this.setFlag(FLAG.N, true)
+        this.hl = this.hl + step
+        this.bc = this.bc - 1
+        this.setFlag(FLAG.PV, this.bc !== 0)
+        if (op & 0x10 && this.bc !== 0 && res !== 0) this.pc = (this.pc - 2) & 0xffff
         break
       }
       default:
-        throw new Error(`Unsupported opcode ED ${op.toString(16).toUpperCase()} at ${this.pc - 2}`)
+        if ((op & 0xcf) === 0x42) this.sbc16(this.getRR((op >> 4) & 3), this.flag(FLAG.C) ? 1 : 0)
+        else if ((op & 0xcf) === 0x4a) this.adc16(this.getRR((op >> 4) & 3), this.flag(FLAG.C) ? 1 : 0)
+        else if ((op & 0xcf) === 0x43) this.write16(this.fetch16(), this.getRR((op >> 4) & 3))
+        else if ((op & 0xcf) === 0x4b) this.setRR((op >> 4) & 3, this.read16(this.fetch16()))
+        else if ((op & 0xc7) === 0x41) this.onOut(this.r[1], ((op >> 3) & 7) === 6 ? 0 : this.r[(op >> 3) & 7]) // OUT (C),r
+        else throw new Error(`Unsupported opcode ED ${op.toString(16).toUpperCase()} at ${this.pc - 2}`)
     }
+  }
+
+  // DD / FD prefixed instructions: the documented IX / IY forms only.
+  execIndexed(reg) {
+    const op = this.fetch()
+    const disp = () => (this.fetch() << 24) >> 24
+    const at = () => (this[reg] + disp()) & 0xffff
+    const x = op >> 6
+    const y = (op >> 3) & 7
+    const z = op & 7
+    switch (op) {
+      case 0x21: this[reg] = this.fetch16(); return
+      case 0x22: this.write16(this.fetch16(), this[reg]); return
+      case 0x2a: this[reg] = this.read16(this.fetch16()); return
+      case 0x23: this[reg] = (this[reg] + 1) & 0xffff; return
+      case 0x2b: this[reg] = (this[reg] - 1) & 0xffff; return
+      case 0x09: case 0x19: case 0x29: case 0x39: {
+        const rr = (op >> 4) & 3
+        this[reg] = this.add16(this[reg], rr === 2 ? this[reg] : this.getRR(rr))
+        return
+      }
+      case 0x34: { const a = at(); this.mem[a] = this.inc8(this.mem[a]); return }
+      case 0x35: { const a = at(); this.mem[a] = this.dec8(this.mem[a]); return }
+      case 0x36: { const a = at(); this.mem[a] = this.fetch(); return }
+      case 0xe1: this[reg] = this.pop(); return
+      case 0xe5: this.push(this[reg]); return
+      case 0xe9: this.pc = this[reg]; return
+      case 0xf9: this.sp = this[reg]; return
+      case 0xe3: {
+        const t = this.read16(this.sp)
+        this.write16(this.sp, this[reg])
+        this[reg] = t
+        return
+      }
+      case 0xcb: {
+        const a = at()
+        const sub = this.fetch()
+        if ((sub & 7) !== 6) break
+        const out = this.cbApply(sub >> 6, (sub >> 3) & 7, this.mem[a])
+        if (out !== null) this.mem[a] = out
+        return
+      }
+      default:
+        if (x === 1 && z === 6 && y !== 6) { this.r[y] = this.mem[at()]; return } // LD r,(IX+d)
+        if (x === 1 && y === 6 && z !== 6) { this.mem[at()] = this.r[z]; return } // LD (IX+d),r
+        if (x === 2 && z === 6) { this.alu(y, this.mem[at()]); return } // ALU A,(IX+d)
+    }
+    const hex = op.toString(16).toUpperCase().padStart(2, '0')
+    throw new Error(`Unsupported opcode ${reg === 'ix' ? 'DD' : 'FD'} ${hex} at ${(this.pc - 2) & 0xffff}`)
   }
 
   // Execute one instruction.
@@ -274,6 +392,15 @@ export class Z80Cpu {
     switch (z) {
       case 0:
         if (y === 0) return // NOP
+        if (y === 1) { // EX AF,AF'
+          const a = this.a
+          this.a = this.alt.r[7]
+          this.alt.r[7] = a
+          const f = this.f
+          this.f = this.alt.f
+          this.alt.f = f
+          return
+        }
         if (y === 2) { // DJNZ
           const d = (this.fetch() << 24) >> 24
           this.r[0] = (this.r[0] - 1) & 0xff
@@ -337,8 +464,7 @@ export class Z80Cpu {
         this.setFlag(FLAG.C, c === 0)
         this.setFlag(FLAG.N, false)
         return
-      default:
-        throw new Error('Unsupported opcode 27 (DAA)')
+      default: this.daa(); return // y = 4
     }
     this.setFlag(FLAG.C, out)
     this.setFlag(FLAG.H, false)
@@ -355,7 +481,9 @@ export class Z80Cpu {
           const v = this.pop()
           if (p === 3) { this.a = v >> 8; this.f = v & 0xff } else this.setRR(p, v)
         } else if (p === 0) this.pc = this.pop() // RET
-        else if (p === 1) throw new Error('Unsupported opcode D9 (EXX)')
+        else if (p === 1) { // EXX
+          for (let i = 0; i < 6; i++) [this.r[i], this.alt.r[i]] = [this.alt.r[i], this.r[i]]
+        }
         else if (p === 2) this.pc = this.hl // JP (HL)
         else this.sp = this.hl // LD SP,HL
         return
@@ -370,6 +498,12 @@ export class Z80Cpu {
           case 1: this.execCB(); return
           case 2: this.onOut(this.fetch(), this.a); return // OUT (n),A
           case 3: this.a = this.onIn(this.fetch()) & 0xff; return // IN A,(n)
+          case 4: { // EX (SP),HL
+            const t = this.read16(this.sp)
+            this.write16(this.sp, this.hl)
+            this.hl = t
+            return
+          }
           case 5: { // EX DE,HL
             const t = this.de
             this.de = this.hl
@@ -397,7 +531,8 @@ export class Z80Cpu {
           this.pc = nn
           this.onCall(nn)
         } else if (p === 2) this.execED()
-        else break
+        else if (p === 1) this.execIndexed('ix')
+        else this.execIndexed('iy')
         return
       case 6: this.alu(y, this.fetch()); return
       default: { // RST

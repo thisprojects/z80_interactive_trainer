@@ -1,4 +1,4 @@
-// Two-pass Z80 assembler for the beginner subset. Emits real Z80 machine code.
+// Two-pass Z80 assembler for the trainer's subset (see docs/assembler.md). Emits real Z80 machine code.
 
 export class AsmError extends Error {
   constructor(message, line) {
@@ -19,18 +19,21 @@ const BIT_OPS = { bit: 1, res: 2, set: 3 }
 const SIMPLE = {
   nop: [0x00], halt: [0x76], rlca: [0x07], rrca: [0x0f], rla: [0x17], rra: [0x1f],
   cpl: [0x2f], scf: [0x37], ccf: [0x3f], neg: [0xed, 0x44], ldir: [0xed, 0xb0],
-  lddr: [0xed, 0xb8], ret: [0xc9],
+  lddr: [0xed, 0xb8], ret: [0xc9], daa: [0x27], exx: [0xd9],
+  ldi: [0xed, 0xa0], ldd: [0xed, 0xa8], cpi: [0xed, 0xa1], cpd: [0xed, 0xa9],
+  cpir: [0xed, 0xb1], cpdr: [0xed, 0xb9],
 }
+const INDEX_PREFIX = { ix: 0xdd, iy: 0xfd }
 // Real Z80 instructions this trainer does not implement. Naming them explicitly stops an
-// un-indented one (e.g. `ldi`) from being silently read as a label.
+// un-indented one (e.g. `ini`) from being silently read as a label.
 const UNSUPPORTED = new Set([
-  'ldi', 'ldd', 'cpi', 'cpd', 'cpir', 'cpdr', 'ini', 'ind', 'inir', 'indr', 'outi', 'outd', 'otir', 'otdr',
-  'di', 'ei', 'im', 'reti', 'retn', 'daa', 'exx', 'rld', 'rrd',
+  'ini', 'ind', 'inir', 'indr', 'outi', 'outd', 'otir', 'otdr',
+  'di', 'ei', 'im', 'reti', 'retn', 'rld', 'rrd',
 ])
-const RESERVED_LABELS = new Set([...Object.keys(REG8), ...Object.keys(REG16), ...Object.keys(COND), 'af'])
+const RESERVED_LABELS = new Set([...Object.keys(REG8), ...Object.keys(REG16), ...Object.keys(COND), 'af', 'ix', 'iy'])
 const MAX_ADDRESS = 0x10000
 const DIRECTIVES = new Set(['org', 'equ', 'db', 'defb', 'dw', 'defw', 'ds', 'defs', 'end'])
-const MNEMONICS = new Set([
+export const MNEMONICS = new Set([
   ...Object.keys(SIMPLE), ...Object.keys(ALU_OPS), ...Object.keys(SHIFT_OPS),
   ...Object.keys(BIT_OPS), 'ld', 'inc', 'dec', 'jp', 'jr', 'djnz', 'call', 'push',
   'pop', 'rst', 'out', 'in', 'ex',
@@ -134,6 +137,9 @@ export function evaluate(text, symbols, here, line, allowUndefined = false) {
 
 // ---------- line parsing ----------
 
+// True when the apostrophe at text[i] is the one in the register name AF' (not a character literal).
+const isAltAf = (text, i) => text[i] === "'" && /(?:^|[^\w.])af$/i.test(text.slice(0, i))
+
 function stripComment(line) {
   let quote = null
   for (let i = 0; i < line.length; i++) {
@@ -141,7 +147,8 @@ function stripComment(line) {
     if (quote) {
       if (ch === '\\') i++
       else if (ch === quote) quote = null
-    } else if (ch === '"' || ch === "'") quote = ch
+    } else if (ch === "'" && isAltAf(line, i)) continue
+    else if (ch === '"' || ch === "'") quote = ch
     else if (ch === ';') return line.slice(0, i)
   }
   return line
@@ -158,7 +165,8 @@ function splitOperands(text) {
       cur += ch
       if (ch === '\\') cur += text[++i] ?? ''
       else if (ch === quote) quote = null
-    } else if (ch === '"' || ch === "'") { quote = ch; cur += ch }
+    } else if (ch === "'" && isAltAf(text, i)) cur += ch
+    else if (ch === '"' || ch === "'") { quote = ch; cur += ch }
     else if (ch === '(') { depth++; cur += ch }
     else if (ch === ')') { depth--; cur += ch }
     else if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = '' }
@@ -178,7 +186,7 @@ function parseLine(raw, lineNo) {
     const word = m[1].toLowerCase()
     const isOp = (MNEMONICS.has(word) || DIRECTIVES.has(word)) && !m[2]
     if (UNSUPPORTED.has(word) && !m[2]) {
-      // `ldi` alone is the unsupported instruction; `ldi EQU 5` or `ldi DB 1` is a label that shares its name
+      // `ini` alone is the unsupported instruction; `ini EQU 5` or `ini DB 1` is a label that shares its name
       const next = /^\s*(\S+)/.exec(text.slice(m[0].length))?.[1]?.toLowerCase()
       if (!(next && (MNEMONICS.has(next) || DIRECTIVES.has(next)))) {
         throw new AsmError(`${word.toUpperCase()} is not supported by this trainer`, lineNo)
@@ -212,7 +220,11 @@ function classify(op) {
   const l = op.trim().toLowerCase()
   if (l in REG8) return { kind: 'r8', n: REG8[l], name: l }
   if (l === '(hl)') return { kind: 'r8', n: 6, name: '(hl)' }
-  if (l === 'af' || l === "af'") return { kind: 'af' }
+  if (l === 'af') return { kind: 'af' }
+  if (l === "af'") return { kind: 'afalt' }
+  if (l === 'ix' || l === 'iy') return { kind: 'idx', name: l }
+  const indexed = /^\(\s*(ix|iy)\s*(?:([+-].*))?\)$/i.exec(op.trim())
+  if (indexed) return { kind: 'ixmem', reg: indexed[1].toLowerCase(), expr: indexed[2] ?? '0' }
   if (l in REG16) return { kind: 'r16', n: REG16[l], name: l }
   if (l === '(bc)' || l === '(de)') return { kind: 'ind', name: l }
   if (l === '(sp)') return { kind: 'ind', name: l }
@@ -261,6 +273,13 @@ function encode(ins, ctx) {
     if (d < -128 || d > 127) fail(`Jump target out of range for relative jump (${d})`)
     return d & 0xff
   }
+  // displacement of (IX+d) / (IY+d)
+  const disp = (expr) => {
+    const v = val(expr)
+    if (v === undefined) return 0
+    if (v < -128 || v > 127) fail(`Index offset ${v} must be between -128 and 127`)
+    return v & 0xff
+  }
   const need = (count) => {
     if (ops.length !== count) fail(`"${mn.toUpperCase()}" needs ${count} operand${count === 1 ? '' : 's'}`)
   }
@@ -284,7 +303,18 @@ function encode(ins, ctx) {
       if (src.kind !== 'r16') bad()
       return [0x09 | (src.n << 4)]
     }
+    if ((mn === 'adc' || mn === 'sbc') && dst?.kind === 'r16' && dst.name === 'hl') {
+      if (src.kind !== 'r16') bad()
+      return [0xed, (mn === 'adc' ? 0x4a : 0x42) | (src.n << 4)]
+    }
+    if (mn === 'add' && dst?.kind === 'idx') {
+      // ADD IX,rr where rr is BC, DE, SP or IX itself (not HL, not the other index register)
+      const code = src.kind === 'r16' && src.name !== 'hl' ? src.n : src.kind === 'idx' && src.name === dst.name ? 2 : -1
+      if (code < 0) bad()
+      return [INDEX_PREFIX[dst.name], 0x09 | (code << 4)]
+    }
     if (dst && !(dst.kind === 'r8' && dst.n === 7)) bad()
+    if (src.kind === 'ixmem') return [INDEX_PREFIX[src.reg], 0x86 | (ALU_OPS[mn] << 3), disp(src.expr)]
     if (src.kind === 'r8') return [0x80 | (ALU_OPS[mn] << 3) | src.n]
     if (src.kind === 'imm') return [0xc6 | (ALU_OPS[mn] << 3), n8(src.expr)]
     bad()
@@ -292,21 +322,25 @@ function encode(ins, ctx) {
 
   if (mn in SHIFT_OPS) {
     need(1)
+    if (ops[0].kind === 'ixmem') return [INDEX_PREFIX[ops[0].reg], 0xcb, disp(ops[0].expr), (SHIFT_OPS[mn] << 3) | 6]
     if (ops[0].kind !== 'r8') bad()
     return [0xcb, (SHIFT_OPS[mn] << 3) | ops[0].n]
   }
 
   if (mn in BIT_OPS) {
     need(2)
-    if (ops[0].kind !== 'imm' || ops[1].kind !== 'r8') bad()
+    if (ops[0].kind !== 'imm' || (ops[1].kind !== 'r8' && ops[1].kind !== 'ixmem')) bad()
     const b = val(ops[0].expr)
-    if (b === undefined && !ctx.final) return [0xcb, (BIT_OPS[mn] << 6) | ops[1].n]
+    const indexed = ops[1].kind === 'ixmem'
+    const target = indexed ? 6 : ops[1].n
+    const wrap = (second) => (indexed ? [INDEX_PREFIX[ops[1].reg], 0xcb, disp(ops[1].expr), second] : [0xcb, second])
+    if (b === undefined && !ctx.final) return wrap((BIT_OPS[mn] << 6) | target)
     if (b === undefined || b < 0 || b > 7) fail('Bit number must be 0-7')
-    return [0xcb, (BIT_OPS[mn] << 6) | (b << 3) | ops[1].n]
+    return wrap((BIT_OPS[mn] << 6) | (b << 3) | target)
   }
 
   switch (mn) {
-    case 'ld': return encodeLd(ops, { need, bad, n8, n16, val, fail })
+    case 'ld': return encodeLd(ops, { need, bad, n8, n16, disp, fail })
     case 'inc':
     case 'dec': {
       need(1)
@@ -314,6 +348,8 @@ function encode(ins, ctx) {
       const dec = mn === 'dec'
       if (o.kind === 'r8') return [0x04 | (o.n << 3) | (dec ? 1 : 0)]
       if (o.kind === 'r16') return [0x03 | (o.n << 4) | (dec ? 8 : 0)]
+      if (o.kind === 'idx') return [INDEX_PREFIX[o.name], dec ? 0x2b : 0x23]
+      if (o.kind === 'ixmem') return [INDEX_PREFIX[o.reg], dec ? 0x35 : 0x34, disp(o.expr)]
       bad()
       break
     }
@@ -321,6 +357,7 @@ function encode(ins, ctx) {
       if (ops.length === 1) {
         if (ops[0].kind === 'r8' && ops[0].n === 6) return [0xe9]
         if (ops[0].kind === 'r16' && ops[0].name === 'hl') return [0xe9]
+        if (ops[0].kind === 'ixmem' && ops[0].expr === '0') return [INDEX_PREFIX[ops[0].reg], 0xe9]
         if (ops[0].kind === 'imm') return [0xc3, ...n16(ops[0].expr)]
         bad()
       }
@@ -356,6 +393,7 @@ function encode(ins, ctx) {
     case 'pop': {
       need(1)
       const o = ops[0]
+      if (o.kind === 'idx') return [INDEX_PREFIX[o.name], mn === 'push' ? 0xe5 : 0xe1]
       let code
       if (o.kind === 'af') code = 3
       else if (o.kind === 'r16' && o.name !== 'sp') code = o.n
@@ -372,6 +410,7 @@ function encode(ins, ctx) {
     case 'out': {
       need(2)
       if (ops[0].kind === 'mem' && ops[1].kind === 'r8' && ops[1].n === 7) return [0xd3, n8(ops[0].expr)]
+      if (ops[0].kind === 'portc' && ops[1].kind === 'r8' && ops[1].n !== 6) return [0xed, 0x41 | (ops[1].n << 3)]
       return bad()
     }
     case 'in': {
@@ -382,7 +421,12 @@ function encode(ins, ctx) {
     case 'ex': {
       need(2)
       if (ops[0].kind === 'r16' && ops[0].name === 'de' && ops[1].kind === 'r16' && ops[1].name === 'hl') return [0xeb]
-      return fail('Only EX DE,HL is supported')
+      if (ops[0].kind === 'af' && ops[1].kind === 'afalt') return [0x08]
+      if (ops[0].kind === 'ind' && ops[0].name === '(sp)') {
+        if (ops[1].kind === 'r16' && ops[1].name === 'hl') return [0xe3]
+        if (ops[1].kind === 'idx') return [INDEX_PREFIX[ops[1].name], 0xe3]
+      }
+      return fail("Supported forms: EX DE,HL  EX AF,AF'  EX (SP),HL  EX (SP),IX  EX (SP),IY")
     }
     default:
       return fail(`Cannot encode "${mn}"`)
@@ -390,9 +434,30 @@ function encode(ins, ctx) {
   return fail(`Cannot encode "${mn}"`)
 }
 
-function encodeLd(ops, { need, bad, n8, n16, fail }) {
+function encodeLd(ops, { need, bad, n8, n16, disp, fail }) {
   need(2)
   const [d, s] = ops
+  // index registers
+  if (d.kind === 'idx') {
+    const pre = INDEX_PREFIX[d.name]
+    if (s.kind === 'imm') return [pre, 0x21, ...n16(s.expr)]
+    if (s.kind === 'mem') return [pre, 0x2a, ...n16(s.expr)]
+    return bad()
+  }
+  if (s.kind === 'idx') {
+    if (d.kind === 'mem') return [INDEX_PREFIX[s.name], 0x22, ...n16(d.expr)]
+    if (d.kind === 'r16' && d.name === 'sp') return [INDEX_PREFIX[s.name], 0xf9]
+    return bad()
+  }
+  if (s.kind === 'ixmem') {
+    if (d.kind !== 'r8' || d.n === 6) return bad()
+    return [INDEX_PREFIX[s.reg], 0x46 | (d.n << 3), disp(s.expr)]
+  }
+  if (d.kind === 'ixmem') {
+    if (s.kind === 'r8' && s.n !== 6) return [INDEX_PREFIX[d.reg], 0x70 | s.n, disp(d.expr)]
+    if (s.kind === 'imm') return [INDEX_PREFIX[d.reg], 0x36, disp(d.expr), n8(s.expr)]
+    return bad()
+  }
   // LD r,r'
   if (d.kind === 'r8' && s.kind === 'r8') {
     if (d.n === 6 && s.n === 6) fail('LD (HL),(HL) is not a valid instruction')
@@ -417,6 +482,8 @@ function encodeLd(ops, { need, bad, n8, n16, fail }) {
   if (d.kind === 'mem' && s.kind === 'r8' && s.n === 7) return [0x32, ...n16(d.expr)]
   if (d.kind === 'r16' && d.name === 'hl' && s.kind === 'mem') return [0x2a, ...n16(s.expr)]
   if (d.kind === 'mem' && s.kind === 'r16' && s.name === 'hl') return [0x22, ...n16(d.expr)]
+  if (d.kind === 'r16' && s.kind === 'mem') return [0xed, 0x4b | (d.n << 4), ...n16(s.expr)] // BC, DE, SP
+  if (d.kind === 'mem' && s.kind === 'r16') return [0xed, 0x43 | (s.n << 4), ...n16(d.expr)]
   return bad()
 }
 

@@ -7,6 +7,8 @@ export const REGISTERS = [
   ['B C D E H L', '8-bit general registers.'],
   ['BC DE HL', 'The same registers as 16-bit pairs. HL is the usual memory pointer.'],
   ['AF', 'A plus the flags. Only used with PUSH and POP.'],
+  ['IX IY', '16-bit index registers. (IX+d) is the byte d bytes past the address in IX (d from -128 to 127).'],
+  ["AF' BC' DE' HL'", 'A shadow copy of the registers, swapped in with EX AF,AF\' and EXX.'],
   ['SP', 'Stack pointer (starts at 0xF000).'],
   ['(HL)', 'The byte in memory at the address held in HL.'],
 ]
@@ -42,13 +44,18 @@ export const MNEMONICS = [
       ['LD HL,(nn) / LD (nn),HL', 'Read or write a 16-bit value (low byte first) at a fixed address.'],
       ['LD SP,HL', 'Point the stack at the address in HL.'],
       ['EX DE,HL', 'Swap the contents of DE and HL.'],
+      ['LD (nn),rr / LD rr,(nn)', 'Store or load BC, DE or SP at a fixed address (little-endian).'],
+      ['LD r,(IX+d) / LD (IX+d),r / LD (IX+d),n', 'Read or write the byte d past the address in IX (or IY).'],
+      ['LD IX,nn / LD IX,(nn) / LD (nn),IX', 'Load or store an index register.'],
+      ["EX AF,AF' / EXX", 'Swap A and the flags, or BC DE HL, with their shadow copies in one instruction.'],
+      ['EX (SP),HL', 'Swap HL with the 16-bit value on top of the stack.'],
     ],
   },
   {
     title: 'Stack',
     rows: [
-      ['PUSH rr', 'Save BC, DE, HL or AF on the stack.'],
-      ['POP rr', 'Restore BC, DE, HL or AF from the stack (last in, first out).'],
+      ['PUSH rr', 'Save BC, DE, HL, AF, IX or IY on the stack.'],
+      ['POP rr', 'Restore BC, DE, HL, AF, IX or IY from the stack (last in, first out).'],
     ],
   },
   {
@@ -61,6 +68,10 @@ export const MNEMONICS = [
       ['CP x', 'Compare: do A - x, set flags, throw the result away. A is unchanged.'],
       ['INC r / DEC r', 'Add or subtract 1 (also on (HL)). Carry is not affected.'],
       ['NEG', 'A = 0 - A (two\'s complement negate).'],
+      ['ADC HL,rr / SBC HL,rr', '16-bit add / subtract including the carry flag. Chains 16-bit values into 32 bits.'],
+      ['DAA', 'Fix A after adding or subtracting two BCD (one digit per nibble) numbers.'],
+      ['ADD IX,rr / INC IX / DEC IX', 'Index register maths: rr is BC, DE, SP or IX itself.'],
+      ['INC (IX+d) / ADD A,(IX+d) ...', 'INC, DEC and the whole ADD..CP group also work on (IX+d).'],
     ],
   },
   {
@@ -95,7 +106,7 @@ export const MNEMONICS = [
     title: 'Jumps, calls and loops',
     rows: [
       ['JP nn / JP cc,nn', 'Jump to an address, optionally if a condition holds. Reaches anywhere.'],
-      ['JP (HL)', 'Jump to the address held in HL.'],
+      ['JP (HL) / JP (IX)', 'Jump to the address held in HL (or IX / IY).'],
       ['JR e / JR cc,e', 'Relative jump, within about 128 bytes. cc is NZ, Z, NC or C only. Smaller than JP.'],
       ['DJNZ e', 'Decrement B; jump if B is not zero. The built-in counted loop.'],
       ['CALL nn / CALL cc,nn', 'Call a subroutine (pushes the return address).'],
@@ -108,6 +119,10 @@ export const MNEMONICS = [
     rows: [
       ['LDIR', 'Copy BC bytes from (HL) to (DE), moving forward. Leaves BC = 0.'],
       ['LDDR', 'Same, but moving backward (start HL and DE at the last byte).'],
+      ['LDI / LDD', 'Copy a single byte and step HL, DE forward / backward; BC counts down. Loop them yourself to do extra work per byte.'],
+      ['CPIR / CPDR', 'Search forward / backward from HL for the value in A, for at most BC bytes. Z is set if it was found (HL is just past it).'],
+      ['CPI / CPD', 'One step of that search: compare A with (HL), step HL, count BC down.'],
+      ['OUT (C),r', 'Write r to the port number held in C.'],
       ['OUT (n),A', 'Write A to port n. Here: 0 = character, 1 = number, 2 = newline.'],
       ['NOP / HALT', 'Do nothing / stop the program. Always end with HALT.'],
     ],
@@ -288,6 +303,46 @@ double: ADD A,A         ; A = A * 2
         LD BC,0         ; free to use BC for something else
         POP BC          ; BC is 0x0509 again
         HALT`,
+  },
+  {
+    id: 'search',
+    title: 'Searching a block with CPIR',
+    blurb: 'Put the value in A, the start in HL and the maximum length in BC. CPIR stops at the first match (Z set, HL just past it) or when BC reaches 0.',
+    code: `        LD HL,data
+        LD BC,5         ; look at up to 5 bytes
+        LD A,30
+        CPIR
+        JR NZ,missing   ; no match
+        LD A,'Y'
+        JR show
+missing: LD A,'N'
+show:   OUT (0),A       ; prints Y
+        HALT
+data:   DB 10,20,30,40,50`,
+  },
+  {
+    id: 'record',
+    title: 'Records with IX',
+    blurb: 'Point IX at the start of a record and give each field a named offset with EQU. (IX+d) then reads a field without moving the pointer.',
+    code: `AGE     EQU 0
+SCORE   EQU 1
+        LD IX,player
+        LD A,(IX+SCORE)
+        ADD A,5
+        LD (IX+SCORE),A ; score = 15
+        LD A,(IX+SCORE)
+        OUT (1),A       ; prints 15
+        HALT
+player: DB 30,10        ; age, score`,
+  },
+  {
+    id: 'bcd',
+    title: 'Decimal (BCD) addition',
+    blurb: 'Store one decimal digit per nibble (0x19 means nineteen). ADD followed by DAA keeps the answer in BCD.',
+    code: `        LD A,0x19
+        ADD A,0x28      ; binary result 0x41
+        DAA             ; corrected to 0x47
+        HALT            ; A = 0x47`,
   },
   {
     id: 'copy',

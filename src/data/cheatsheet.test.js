@@ -7,6 +7,7 @@ const OUTPUT = {
   'counted-loop': '54321', 'count-up': '12345', while: '5', nested: '****\n****\n****\n',
   'loop-16': '', 'if-else': 'L', equal: '=', max: '9', 'bit-test': '1', array: '10',
   string: 'Hello', subroutine: '6', stack: '', copy: 'H', multiply: '4284',
+  search: 'Y', record: '15', bcd: '',
 }
 
 describe('cheat sheet data', () => {
@@ -23,6 +24,10 @@ describe('cheat sheet data', () => {
   it('leaves the registers the comments promise', () => {
     expect(runProgram(PARADIGMS.find((p) => p.id === 'loop-16').code).machine.getRegisters().HL).toBe(300)
     expect(runProgram(PARADIGMS.find((p) => p.id === 'stack').code).machine.getRegisters().BC).toBe(0x0509)
+  })
+
+  it('leaves BCD addition corrected', () => {
+    expect(runProgram(PARADIGMS.find((p) => p.id === 'bcd').code).machine.getRegisters().A).toBe(0x47)
   })
 
   it('has non-empty mnemonic groups', () => {

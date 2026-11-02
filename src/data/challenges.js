@@ -14,295 +14,6 @@ const fizzbuzz = (n) =>
 
 const challenges = [
   {
-    id: 'load-a',
-    title: 'Hello, Register A',
-    difficulty: 'beginner',
-    category: 'basics',
-    description: 'Registers are the Z80\'s variables. Your first job is to store a value in one of them.',
-    task: ['Make register A hold the number 42 when the program ends.'],
-    explanation:
-      'The Z80 has a handful of 8-bit registers named A, B, C, D, E, H and L. The A register, the accumulator, is the busiest of them. Every program ends with HALT, which tells the processor to stop.',
-    starterCode: '        ORG 0x8000\n\n        ; your code here\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'The LD instruction copies a value into a destination: LD destination, source.' },
-      { title: 'Hint 2', body: 'A number written directly in the instruction is called an immediate value.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'One LD loads the constant 42 into A.',
-        code: `        ORG 0x8000
-        LD A,42         ; load the constant 42 into A
-        HALT
-`,
-      },
-    ],
-    tests: [{ name: 'A equals 42', expect: { registers: { A: 42 } } }],
-  },
-  {
-    id: 'copy-registers',
-    title: 'Copy Cat',
-    difficulty: 'beginner',
-    category: 'basics',
-    description: 'Register B already holds a value. Make copies of it in other registers.',
-    task: ['Copy the value in register B into register C.', 'Copy it into register D as well.', 'Register B must keep its value.'],
-    explanation: 'Registers can be copied to one another with a single instruction. The source is left unchanged by a copy.',
-    starterCode: '        ORG 0x8000\n\n        ; B already contains a value\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'LD works between two registers: LD dest, source.' },
-      { title: 'Hint 2', body: 'You will need two LD instructions.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'Two loads copy B into C and D. B is only read, so it keeps its value.',
-        code: `        ORG 0x8000
-        LD C,B          ; C = B
-        LD D,B          ; D = B
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: 'B = 7', setup: { registers: { B: 7 } }, expect: { registers: { B: 7, C: 7, D: 7 } } },
-      { name: 'B = 200', setup: { registers: { B: 200 } }, expect: { registers: { B: 200, C: 200, D: 200 } } },
-    ],
-  },
-  {
-    id: 'add-two',
-    title: 'Add Them Up',
-    difficulty: 'beginner',
-    category: 'arithmetic',
-    description: 'Registers A and B each contain a number. Add them together.',
-    task: ['Leave the sum of A and B in register A.', 'You may assume the sum is no larger than 255.'],
-    explanation: 'Arithmetic on the Z80 happens in the accumulator, register A, which is both an input and the place where the result lands.',
-    starterCode: '        ORG 0x8000\n\n        ; A and B contain numbers\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'There is an ADD instruction that takes A as its first operand.' },
-      { title: 'Hint 2', body: 'ADD A,B adds B to A.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'ADD A,B adds B to A and leaves the sum in A.',
-        code: `        ORG 0x8000
-        ADD A,B         ; A = A + B
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: '3 + 4', setup: { registers: { A: 3, B: 4 } }, expect: { registers: { A: 7 } } },
-      { name: '100 + 55', setup: { registers: { A: 100, B: 55 } }, expect: { registers: { A: 155 } } },
-      { name: '0 + 0', setup: { registers: { A: 0, B: 0 } }, expect: { registers: { A: 0 } } },
-    ],
-  },
-  {
-    id: 'subtract',
-    title: 'Take Away',
-    difficulty: 'beginner',
-    category: 'arithmetic',
-    description: 'Registers A and B each contain a number, and A is the larger (or equal).',
-    task: ['Subtract B from A, leaving the difference in register A.'],
-    explanation: 'Subtraction works in the accumulator too: A is the number being subtracted from, and it receives the result.',
-    starterCode: '        ORG 0x8000\n\n        ; A >= B\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'The mnemonic for subtracting is SUB.' },
-      { title: 'Hint 2', body: 'SUB B subtracts register B from A.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'SUB B subtracts B from A and leaves the difference in A.',
-        code: `        ORG 0x8000
-        SUB B           ; A = A - B
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: '10 - 3', setup: { registers: { A: 10, B: 3 } }, expect: { registers: { A: 7 } } },
-      { name: '50 - 50', setup: { registers: { A: 50, B: 50 } }, expect: { registers: { A: 0 } } },
-    ],
-  },
-  {
-    id: 'inc-dec',
-    title: 'One Up, One Down',
-    difficulty: 'beginner',
-    category: 'arithmetic',
-    description: 'Register B holds a number between 1 and 254.',
-    task: ['Put B + 1 into register C.', 'Put B - 1 into register D.', 'Register B must keep its original value.'],
-    explanation: 'Adding or removing exactly one is one of the most common operations in any program. Here you must also keep the original value intact.',
-    starterCode: '        ORG 0x8000\n\n        ; B contains a number from 1 to 254\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'INC adds one to a register and DEC subtracts one.' },
-      { title: 'Hint 2', body: 'INC and DEC change the register in place, so copy B first.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'Copy B into C and D first, then change the copies so B is untouched.',
-        code: `        ORG 0x8000
-        LD C,B
-        INC C           ; C = B + 1
-        LD D,B
-        DEC D           ; D = B - 1
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: 'B = 5', setup: { registers: { B: 5 } }, expect: { registers: { B: 5, C: 6, D: 4 } } },
-      { name: 'B = 100', setup: { registers: { B: 100 } }, expect: { registers: { B: 100, C: 101, D: 99 } } },
-    ],
-  },
-  {
-    id: 'bit-twiddle',
-    title: 'Flip the Bits',
-    difficulty: 'beginner',
-    category: 'basics',
-    description: 'Register A holds a byte. Change two of its bits.',
-    task: ['Set bit 7 of A to 1.', 'Clear bit 0 of A to 0.', 'Leave all other bits as they were.'],
-    explanation: 'A byte is eight bits, numbered 0 (the least significant) to 7 (the most significant). Individual bits can be switched on and off without disturbing their neighbours.',
-    starterCode: '        ORG 0x8000\n\n        ; A contains a byte\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'There are instructions that operate on a single named bit of a register.' },
-      { title: 'Hint 2', body: 'SET b,r turns a bit on. RES b,r turns it off.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'SET turns bit 7 on and RES turns bit 0 off. Other bits are not touched.',
-        code: `        ORG 0x8000
-        SET 7,A         ; bit 7 = 1
-        RES 0,A         ; bit 0 = 0
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: 'A = 0', setup: { registers: { A: 0 } }, expect: { registers: { A: 0x80 } } },
-      { name: 'A = 255', setup: { registers: { A: 0xff } }, expect: { registers: { A: 0xfe } } },
-      { name: 'A = 0x55', setup: { registers: { A: 0x55 } }, expect: { registers: { A: 0xd4 } } },
-    ],
-  },
-  {
-    id: 'print-char',
-    title: 'Say It With a Letter',
-    difficulty: 'beginner',
-    category: 'output',
-    description: 'Programs usually need to show something to the user. In this trainer, you print by writing to an output port.',
-    task: ['Print the single letter Z to the console.'],
-    explanation:
-      'The Z80 talks to the outside world through ports. In this trainer, port 0 is the console: whatever character code you send there is displayed. Port 1 prints a number in decimal and port 2 prints a newline.',
-    starterCode: '        ORG 0x8000\n\n        ; port 0 = print a character\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'OUT (port),A sends the value in A to a port.' },
-      { title: 'Hint 2', body: 'Characters are just numbers. You can write a character in quotes, like \'Z\', anywhere a number goes.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'Load the character code into A, then send A to port 0.',
-        code: `        ORG 0x8000
-        LD A,'Z'        ; the character code for Z
-        OUT (0),A       ; port 0 prints a character
-        HALT
-`,
-      },
-    ],
-    tests: [{ name: 'prints Z', expect: { output: 'Z' } }],
-  },
-  {
-    id: 'print-hello',
-    title: 'Hello, World',
-    difficulty: 'intermediate',
-    category: 'output',
-    description: 'The traditional first program: print a greeting.',
-    task: ['Print exactly Hello, Z80! to the console.'],
-    explanation: 'Text is stored in memory as a row of byte values, and the console shows whatever character codes you send it.',
-    starterCode: '        ORG 0x8000\n\n        ; port 0 prints a character\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'You can print each character separately, but that is a lot of repeated code.' },
-      { title: 'Hint 2', body: 'DB "text" stores a string in memory. Add a 0 after it to mark the end.' },
-      { title: 'Hint 3', body: 'A register pair such as HL can point at a byte in memory. LD A,(HL) reads that byte, INC HL moves to the next.' },
-      { title: 'Hint 4', body: 'In outline: point HL at the text. Then loop: read the byte at HL into A, stop if it is 0, otherwise print it, move HL on by one, and go round again. The text and its 0 go after HALT.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'HL walks along the string. OR A sets the Z flag when the byte is the 0 terminator, which ends the loop.',
-        code: `        ORG 0x8000
-        LD HL,msg       ; HL points at the first character
-next:   LD A,(HL)       ; read the character
-        OR A            ; Z is set if it is the 0 terminator
-        JR Z,done
-        OUT (0),A       ; print it
-        INC HL          ; move to the next character
-        JR next
-done:   HALT
-msg:    DB "Hello, Z80!",0
-`,
-      },
-    ],
-    tests: [{ name: 'prints the greeting', expect: { output: 'Hello, Z80!' } }],
-  },
-  {
-    id: 'print-number',
-    title: 'Show Me the Number',
-    difficulty: 'beginner',
-    category: 'output',
-    description: 'Register B contains a number. Show it to the user.',
-    task: ['Print the value of register B as a decimal number.'],
-    explanation: 'Port 1 turns a byte into its decimal text. Sending the byte 65 to port 0 would print the letter A, but sending it to port 1 prints the digits 65.',
-    starterCode: '        ORG 0x8000\n\n        ; B contains a number\n        ; port 1 = print a number\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'OUT only sends the A register.' },
-      { title: 'Hint 2', body: 'Copy B into A first.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'OUT only sends A, so copy B into A and use port 1 to print it as a decimal number.',
-        code: `        ORG 0x8000
-        LD A,B          ; OUT can only send A
-        OUT (1),A       ; port 1 prints A as a number
-        HALT
-`,
-      },
-    ],
-    tests: [
-      { name: 'B = 42', setup: { registers: { B: 42 } }, expect: { output: '42' } },
-      { name: 'B = 0', setup: { registers: { B: 0 } }, expect: { output: '0' } },
-      { name: 'B = 255', setup: { registers: { B: 255 } }, expect: { output: '255' } },
-    ],
-  },
-  {
-    id: 'count-up',
-    title: 'Count to Ten',
-    difficulty: 'beginner',
-    category: 'loops',
-    description: 'Loops let a program repeat work without repeating code.',
-    task: ['Print the numbers 1 to 10, one per line.'],
-    explanation:
-      'The Z80 has no for or while keyword, so repetition has to be built from the pieces the processor gives you.',
-    starterCode: '        ORG 0x8000\n\n        ; port 1 = print a number, port 2 = newline\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'A loop needs a label to jump back to, a counter in a register, and a conditional jump that decides whether to go round again.' },
-      { title: 'Hint 2', body: 'CP compares A to a value and sets the flags. JR NZ and JR Z jump depending on the result.' },
-      { title: 'Hint 3', body: 'OUT (2),A prints a newline whatever A contains.' },
-      { title: 'Hint 4', body: 'In outline: start a counter at 1. Each time round, print it and a newline, add 1, then compare it with 11 and go round again unless it has reached 11.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'B is the counter. Stopping when it reaches 11 means the loop body runs for 1 to 10.',
-        code: `        ORG 0x8000
-        LD B,1          ; counter
-loop:   LD A,B
-        OUT (1),A       ; print the number
-        OUT (2),A       ; print a newline
-        INC B
-        LD A,B
-        CP 11           ; reached 11?
-        JR NZ,loop      ; no: repeat
-        HALT
-`,
-      },
-    ],
-    tests: [{ name: 'prints 1 to 10', expect: { output: lines(range(1, 10)) } }],
-  },
-  {
     id: 'countdown',
     title: 'Liftoff',
     difficulty: 'intermediate',
@@ -311,6 +22,7 @@ loop:   LD A,B
     task: ['Print the numbers 10 down to 1, one per line.', 'Then print the word Liftoff! on its own line.'],
     explanation: 'Counting down is just as common as counting up, and loops often finish when a counter reaches zero.',
     starterCode: '        ORG 0x8000\n\n        ; port 0 = character, 1 = number, 2 = newline\n\n        HALT\n',
+    uses: ['djnz', 'strings', 'print-number', 'newlines'],
     hints: [
       { title: 'Hint 1', body: 'DJNZ decrements B and jumps if the result is not zero.' },
       { title: 'Hint 2', body: 'DJNZ ends the loop when B reaches 0, so think about how your printed value relates to B.' },
@@ -348,6 +60,7 @@ msg:    DB "Liftoff!",0
     task: ['Leave the sum 1 + 2 + ... + N in register A.'],
     explanation: 'Accumulating a running total inside a loop is one of the most common patterns in programming.',
     starterCode: '        ORG 0x8000\n\n        ; B = N\n\n        HALT\n',
+    uses: ['djnz', 'accumulate'],
     hints: [
       { title: 'Hint 1', body: 'Start with a running total of zero. XOR A is a quick way to zero A.' },
       { title: 'Hint 2', body: 'DJNZ loops while decrementing B. B itself is a number you want to add.' },
@@ -380,6 +93,7 @@ loop:   ADD A,B         ; add the current B
     task: ['Leave B x C in register A.', 'Either number may be zero.', 'The product is never more than 255.'],
     explanation: 'The Z80 gives you only addition, so multiplication has to be built from simpler steps. Watch out for edge cases: either input may be zero.',
     starterCode: '        ORG 0x8000\n\n        ; B and C contain numbers\n\n        HALT\n',
+    uses: ['djnz', 'accumulate', 'guard-loops'],
     hints: [
       { title: 'Hint 1', body: 'Multiplication is repeated addition: start a running total at zero and add C to it, B times.' },
       { title: 'Hint 2', body: 'DJNZ decrements before it tests, so a counter of 0 would loop 256 times.' },
@@ -416,6 +130,7 @@ done:   HALT
     task: ['Make sure register A ends up holding the larger of the two.'],
     explanation: 'Decisions on the Z80 are made with flags, the processor\'s record of what the last operation did. This is the assembly version of an if statement.',
     starterCode: '        ORG 0x8000\n\n        ; A and B contain numbers\n\n        HALT\n',
+    uses: ['if-else'],
     hints: [
       { title: 'Hint 1', body: 'A comparison sets the flags and a conditional jump reads them. CP B compares A with B without changing either register.' },
       { title: 'Hint 2', body: 'After CP B, the Carry flag is set when A is less than B.' },
@@ -449,6 +164,7 @@ done:   HALT
     task: ['Set register B to 1 if A is even.', 'Set register B to 0 if A is odd.'],
     explanation: 'Even and odd numbers differ in their binary representation.',
     starterCode: '        ORG 0x8000\n\n        ; A contains a number\n\n        HALT\n',
+    uses: ['testing-bits', 'if-else'],
     hints: [
       { title: 'Hint 1', body: 'Look at which bit differs between 4 (100) and 5 (101).' },
       { title: 'Hint 2', body: 'AND with a mask keeps only the bits you ask for, and sets the Z flag if the result is zero.' },
@@ -483,6 +199,7 @@ done:   HALT
     task: ['Replace A with its absolute value.', 'Positive numbers and zero must not change.'],
     explanation: 'Negative numbers are stored in two\'s complement, so the same byte can mean different values depending on how you read it.',
     starterCode: '        ORG 0x8000\n\n        ; A is a signed number\n\n        HALT\n',
+    uses: ['testing-bits', 'wraparound'],
     hints: [
       { title: 'Hint 1', body: 'First work out whether the number is negative. In two\'s complement the top bit (bit 7) is 1 for negative values.' },
       { title: 'Hint 2', body: 'NEG turns A into 0 - A.' },
@@ -521,6 +238,7 @@ done:   HALT
     ],
     explanation: 'FizzBuzz combines loops, conditionals and output. The Z80 has no divide instruction, which makes spotting multiples an interesting puzzle.',
     starterCode: '        ORG 0x8000\n\n        ; H = N\n        ; port 0 = character, 1 = number, 2 = newline\n\n        HALT\n',
+    uses: ['djnz', 'if-equal', 'subroutine', 'strings', 'newlines', 'preserving'],
     hints: [
       { title: 'Hint 1', body: 'You do not need to divide. A counter that counts down from 3 and resets can tell you when a multiple of 3 has arrived.' },
       { title: 'Hint 2', body: 'Use a second counter for 5.' },
@@ -597,6 +315,7 @@ limit:  DB 0
     ],
     explanation: 'A register pair like HL can act as a pointer. The notation (HL) means "the byte of memory that HL points to".',
     starterCode: '        ORG 0x8000\n\n        ; HL = address, B = count, A = value\n\n        HALT\n',
+    uses: ['pointers', 'array-loop'],
     hints: [
       { title: 'Hint 1', body: 'LD (HL),A stores A into the byte at the address in HL.' },
       { title: 'Hint 2', body: 'INC HL moves the pointer along by one byte.' },
@@ -628,44 +347,6 @@ loop:   LD (HL),A       ; store A at the address in HL
     ],
   },
   {
-    id: 'copy-block',
-    title: 'Block Copy',
-    difficulty: 'intermediate',
-    category: 'memory',
-    description: 'Copy a block of bytes from one place in memory to another.',
-    task: [
-      'HL holds the source address, DE the destination address and BC the number of bytes.',
-      'Copy BC bytes from the source to the destination.',
-    ],
-    explanation: 'Copying memory is one of the most common jobs a program does.',
-    starterCode: '        ORG 0x8000\n\n        ; HL = source, DE = destination, BC = length\n\n        HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'Block transfer instructions use HL, DE and BC as source, destination and count.' },
-      { title: 'Hint 2', body: 'LDIR repeats until BC reaches zero.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'LDIR copies BC bytes from the address in HL to the address in DE, so all the work is one instruction.',
-        code: `        ORG 0x8000
-        LDIR            ; copy BC bytes from (HL) to (DE)
-        HALT
-`,
-      },
-    ],
-    tests: [
-      {
-        name: 'copy 4 bytes',
-        setup: { registers: { HL: 0x9000, DE: 0x9100, BC: 4 }, memory: { 0x9000: [1, 2, 3, 4] } },
-        expect: { memory: { 0x9100: [1, 2, 3, 4] } },
-      },
-      {
-        name: 'copy 10 bytes',
-        setup: { registers: { HL: 0x9200, DE: 0x9300, BC: 10 }, memory: { 0x9200: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0] } },
-        expect: { memory: { 0x9300: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0] } },
-      },
-    ],
-  },
-  {
     id: 'sum-array',
     title: 'Array Total',
     difficulty: 'intermediate',
@@ -674,6 +355,7 @@ loop:   LD (HL),A       ; store A at the address in HL
     task: ['HL holds the address of the first element and B holds the number of elements (at least 1).', 'Leave the sum of all the elements in register A.', 'The total never exceeds 255.'],
     explanation: 'Arrays are just consecutive bytes in memory, and a program reaches them through addresses held in registers.',
     starterCode: '        ORG 0x8000\n\n        ; HL = array address, B = length\n\n        HALT\n',
+    uses: ['array-loop', 'accumulate'],
     hints: [
       { title: 'Hint 1', body: 'Start with A = 0.' },
       { title: 'Hint 2', body: 'ADD A,(HL) adds the byte at the address in HL to A.' },
@@ -706,6 +388,7 @@ loop:   ADD A,(HL)      ; add the element at HL
     task: ['HL holds the address of the first element and B holds the number of elements (at least 1).', 'Leave the largest element in register A.'],
     explanation: 'Searching an array for an extreme value combines a loop over memory with a comparison on every element.',
     starterCode: '        ORG 0x8000\n\n        ; HL = array address, B = length\n\n        HALT\n',
+    uses: ['array-loop', 'if-else'],
     hints: [
       { title: 'Hint 1', body: 'Remember the best value seen so far, starting with the first element, and replace it whenever something bigger turns up.' },
       { title: 'Hint 2', body: 'CP (HL) compares A with the byte at HL.' },
@@ -745,6 +428,7 @@ done:   HALT
     task: ['HL holds the address of the first element and B holds the number of elements (at least 1).', 'Leave the number of elements equal to zero in register C.'],
     explanation: 'Counting items that match a condition is a common task once data lives in memory.',
     starterCode: '        ORG 0x8000\n\n        ; HL = array address, B = length\n\n        HALT\n',
+    uses: ['array-loop', 'if-equal'],
     hints: [
       { title: 'Hint 1', body: 'Zero is the only value for which OR A leaves the Z flag set.' },
       { title: 'Hint 2', body: 'Load each element into A, then test it. Only increase your counter when the test succeeds, so jump over the INC otherwise.' },
@@ -779,6 +463,7 @@ skip:   INC HL
     task: ['HL holds the address of the first character.', 'Leave the length of the string (not counting the zero byte) in register B.'],
     explanation: 'Strings in memory have no stored length, so a program has to discover it for itself.',
     starterCode: '        ORG 0x8000\n\n        ; HL = string address, terminated by a 0 byte\n\n        HALT\n',
+    uses: ['strings', 'pointers'],
     hints: [
       { title: 'Hint 1', body: 'Step along the string one byte at a time until you find the terminator.' },
       { title: 'Hint 2', body: 'Count the steps in B.' },
@@ -806,45 +491,6 @@ done:   HALT
     ],
   },
   {
-    id: 'subroutine',
-    title: 'Call Me Maybe',
-    difficulty: 'intermediate',
-    category: 'subroutines',
-    description: 'Subroutines are the Z80\'s functions: reusable pieces of code that you call and that return when finished.',
-    task: [
-      'Write a subroutine called double that doubles the value in register A.',
-      'Your main program must use it three times on register A, so that A ends up eight times larger than it started.',
-      'A is at most 31.',
-    ],
-    explanation: 'A subroutine is code you can run from several places and then return from. The processor keeps track of where it came from using the stack.',
-    requires: { call: { label: 'double', min: 3 } },
-    starterCode: '        ORG 0x8000\n\n        ; main program\n\n        HALT\n\n        ; subroutines go after HALT\n',
-    hints: [
-      { title: 'Hint 1', body: 'Put the subroutine after HALT so the main program does not run into it.' },
-      { title: 'Hint 2', body: 'Doubling is the same as adding a number to itself.' },
-      { title: 'Hint 3', body: 'CALL label runs a subroutine. End the subroutine with RET, which returns to the instruction after the CALL.' },
-      {
-        title: 'Spoiler: full solution',
-        spoiler: true,
-        body: 'The subroutine lives after HALT and ends with RET. The main program CALLs it three times.',
-        code: `        ORG 0x8000
-        CALL double
-        CALL double
-        CALL double
-        HALT
-
-double: ADD A,A         ; A = A * 2
-        RET
-`,
-      },
-    ],
-    tests: [
-      { name: 'A = 1', setup: { registers: { A: 1 } }, expect: { registers: { A: 8 } } },
-      { name: 'A = 3', setup: { registers: { A: 3 } }, expect: { registers: { A: 24 } } },
-      { name: 'A = 31', setup: { registers: { A: 31 } }, expect: { registers: { A: 248 } } },
-    ],
-  },
-  {
     id: 'swap-registers',
     title: 'Switcheroo',
     difficulty: 'beginner',
@@ -853,6 +499,7 @@ double: ADD A,A         ; A = A * 2
     task: ['Swap the values of B and C.', 'You may use A as scratch space.'],
     explanation: 'Overwriting a register destroys what it held, so the order of your copies matters.',
     starterCode: '        ORG 0x8000\n\n        ; B and C contain values\n\n        HALT\n',
+    uses: ['copying-registers'],
     hints: [
       { title: 'Hint 1', body: 'If you copy B over C straight away, the old value of C is lost.' },
       { title: 'Hint 2', body: 'Park one value in A first. Swapping needs a third place to hold one value temporarily, like swapping two glasses of water.' },
@@ -886,6 +533,7 @@ double: ADD A,A         ; A = A * 2
     ],
     explanation: 'Memory can be read and written in any order, and two addresses can be tracked at once.',
     starterCode: '        ORG 0x8000\n\n        ; HL = address of the bytes, B = how many\n\n        HALT\n',
+    uses: ['array-loop', 'strings', 'sixteen-bit', 'pointers'],
     hints: [
       { title: 'Hint 1', body: 'Work from both ends towards the middle, swapping the byte at the front with the byte at the back.' },
       { title: 'Hint 2', body: 'Keep one pointer in DE and one in HL. ADD HL,BC moves HL forward by BC bytes, so the last byte is at start + length - 1.' },
@@ -947,45 +595,410 @@ done:   HALT
     ],
   },
   {
-    id: 'stack-swap',
-    title: 'Stack Shuffle',
+    id: 'gcd',
+    title: 'Greatest Common Divisor',
     difficulty: 'intermediate',
-    category: 'memory',
-    description: 'Register pairs BC and DE each hold a 16-bit value.',
-    task: [
-      'Swap the contents of BC and DE.',
-      'Registers A, H and L must end with the values they started with.',
-    ],
-    explanation: 'Every register can be overwritten, so a program sometimes needs somewhere else to keep values safe.',
-    starterCode: '        ORG 0x8000\n\n        ; BC and DE hold 16-bit values\n\n        HALT\n',
+    category: 'loops',
+    description: 'Two numbers can often be divided by a larger number without a remainder. Find the largest one that works for both.',
+    task: ['A and B each hold a number from 1 to 255.', 'Leave the greatest common divisor of A and B in register A.'],
+    explanation: 'The greatest common divisor of 12 and 18 is 6. There is no divide or remainder instruction on the Z80, so the method has to be built from the operations you do have.',
+    starterCode: '        ORG 0x8000\n\n        ; A and B contain numbers from 1 to 255\n\n        HALT\n',
+    uses: ['loop-counter', 'while-loops', 'if-else'],
     hints: [
-      { title: 'Hint 1', body: 'The stack is a block of memory that PUSH and POP use to save and restore register pairs.' },
-      { title: 'Hint 2', body: 'The last pair pushed is the first pair popped. PUSH BC then POP DE moves a value between pairs.' },
-      { title: 'Hint 3', body: 'Push both pairs, then pop them back in the opposite order.' },
+      { title: 'Hint 1', body: 'Euclid\'s idea: if two numbers are equal, that is the answer. Otherwise the bigger one can be replaced by the difference of the two without changing the answer.' },
+      { title: 'Hint 2', body: 'Loop: compare A with B. Equal means finished. If A is bigger, subtract B from A; otherwise subtract A from B.' },
+      { title: 'Hint 3', body: 'Swapping is not needed: keep A and B in place and subtract into whichever is bigger. Use C to hold A while you work out B - A.' },
       {
         title: 'Spoiler: full solution',
         spoiler: true,
-        body: 'Pushing BC then DE and popping them into BC then DE reverses the order, which swaps the pairs.',
+        body: 'Keep subtracting the smaller from the larger until they are equal.',
         code: `        ORG 0x8000
-        PUSH BC
-        PUSH DE
-        POP BC          ; BC gets the old DE
-        POP DE          ; DE gets the old BC
+loop:   CP B            ; compare A with B
+        JR Z,done       ; equal: that is the answer
+        JR C,less       ; A < B
+        SUB B           ; A > B: A = A - B
+        JR loop
+less:   LD C,A          ; remember A
+        LD A,B
+        SUB C           ; B - A
+        LD B,A          ; B = B - A
+        LD A,C          ; restore A
+        JR loop
+done:   HALT
+`,
+      },
+    ],
+    tests: [
+      { name: '12 and 18', setup: { registers: { A: 12, B: 18 } }, expect: { registers: { A: 6 } } },
+      { name: 'coprime 7 and 13', setup: { registers: { A: 7, B: 13 } }, expect: { registers: { A: 1 } } },
+      { name: '100 and 75', setup: { registers: { A: 100, B: 75 } }, expect: { registers: { A: 25 } } },
+      { name: 'equal', setup: { registers: { A: 9, B: 9 } }, expect: { registers: { A: 9 } } },
+      { name: '1 and 200', setup: { registers: { A: 1, B: 200 } }, expect: { registers: { A: 1 } } },
+      { name: '255 and 255', setup: { registers: { A: 255, B: 255 } }, expect: { registers: { A: 255 } } },
+    ],
+  },
+  {
+    id: 'big-multiply',
+    title: 'Big Multiply',
+    difficulty: 'advanced',
+    category: 'arithmetic',
+    description: 'Multiplying two bytes can give an answer that needs sixteen bits.',
+    task: ['B and C each hold a number from 0 to 255.', 'Leave B multiplied by C in the 16-bit register HL.'],
+    explanation: 'The largest answer is 255 * 255 = 65025, which does not fit in a byte. The Z80 has no multiply instruction.',
+    starterCode: '        ORG 0x8000\n\n        ; B and C contain numbers from 0 to 255\n\n        HALT\n',
+    uses: ['sixteen-bit', 'djnz', 'guard-loops'],
+    hints: [
+      { title: 'Hint 1', body: 'Multiplication is repeated addition. Add C to a running 16-bit total, B times.' },
+      { title: 'Hint 2', body: 'The running total must be 16 bits, so it lives in HL and C has to be widened into DE (with D = 0).' },
+      { title: 'Hint 3', body: 'DJNZ with B = 0 would run 256 times. Check for zero before the loop. (A faster way adds shifted copies, but plain repetition passes the tests.)' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'A 16-bit total in HL, B additions of C.',
+        code: `        ORG 0x8000
+        LD HL,0         ; running total
+        LD D,0
+        LD E,C          ; DE = C as a 16-bit number
+        INC B
+        DEC B           ; is B zero?
+        JR Z,done       ; 0 * anything = 0
+loop:   ADD HL,DE       ; add C once
+        DJNZ loop       ; ...B times
+done:   HALT
+`,
+      },
+    ],
+    tests: [
+      { name: '3 * 4', setup: { registers: { B: 3, C: 4 } }, expect: { registers: { HL: 12 } } },
+      { name: '200 * 200', setup: { registers: { B: 200, C: 200 } }, expect: { registers: { HL: 40000 } } },
+      { name: '255 * 255', setup: { registers: { B: 255, C: 255 } }, expect: { registers: { HL: 65025 } } },
+      { name: 'zero multiplier', setup: { registers: { B: 0, C: 77 } }, expect: { registers: { HL: 0 } } },
+      { name: 'zero multiplicand', setup: { registers: { B: 9, C: 0 } }, expect: { registers: { HL: 0 } } },
+      { name: '1 * 255', setup: { registers: { B: 1, C: 255 } }, expect: { registers: { HL: 255 } } },
+    ],
+  },
+  {
+    id: 'popcount',
+    title: 'Count the Ones',
+    difficulty: 'intermediate',
+    category: 'loops',
+    description: 'Every byte is eight bits, each either 0 or 1. How many are 1?',
+    task: ['Register A holds a byte.', 'Put the number of bits in A that are 1 into register B.'],
+    explanation: 'This "population count" is used in parity checks and bitmaps.',
+    starterCode: '        ORG 0x8000\n\n        ; A contains a byte\n\n        HALT\n',
+    uses: ['doubling-halving', 'if-else', 'loop-counter'],
+    hints: [
+      { title: 'Hint 1', body: 'Look at each of the eight bits in turn. A shift moves a bit out of the register into the carry flag.' },
+      { title: 'Hint 2', body: 'SRL A shifts right and leaves the old bit 0 in carry. JR NC skips the count when the bit was 0.' },
+      { title: 'Hint 3', body: 'You need an eight-times loop. DJNZ owns B, but B is also your answer, so count the loop in C instead.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Shift out each bit, and count those that land in carry.',
+        code: `        ORG 0x8000
+        LD B,0          ; number of ones
+        LD C,8          ; bits to examine
+loop:   SRL A           ; bit 0 goes into carry
+        JR NC,skip      ; it was 0
+        INC B           ; it was 1
+skip:   DEC C
+        JR NZ,loop
         HALT
 `,
       },
     ],
     tests: [
+      { name: '0', setup: { registers: { A: 0 } }, expect: { registers: { B: 0 } } },
+      { name: '255', setup: { registers: { A: 255 } }, expect: { registers: { B: 8 } } },
+      { name: '0xA5', setup: { registers: { A: 165 } }, expect: { registers: { B: 4 } } },
+      { name: '0x80', setup: { registers: { A: 128 } }, expect: { registers: { B: 1 } } },
+      { name: '0x7F', setup: { registers: { A: 127 } }, expect: { registers: { B: 7 } } },
+      { name: '1', setup: { registers: { A: 1 } }, expect: { registers: { B: 1 } } },
+    ],
+  },
+  {
+    id: 'string-compare',
+    title: 'Same Text?',
+    difficulty: 'intermediate',
+    category: 'memory',
+    description: 'Two pieces of text are the same only if every character matches and they end together.',
+    task: ['HL points at one zero-terminated string and DE points at another.', 'Put 1 in register B if the two strings are identical, otherwise 0.'],
+    explanation: 'Strings in memory end with a zero byte. Equal strings have the same characters and the same length.',
+    starterCode: '        ORG 0x8000\n\n        ; HL = first string, DE = second string (each ends with 0)\n\n        HALT\n',
+    uses: ['strings', 'pointers', 'if-equal'],
+    hints: [
+      { title: 'Hint 1', body: 'Walk along both strings at once, comparing one character at a time.' },
+      { title: 'Hint 2', body: 'If a pair of characters differs, the strings are different. If they match and are both the terminating 0, they are the same.' },
+      { title: 'Hint 3', body: 'CP (HL) compares A with the byte HL points at. Load the character from (DE) into A first.' },
       {
-        name: 'distinct values',
-        setup: { registers: { BC: 0x1234, DE: 0xabcd, A: 9, HL: 0x5566 } },
-        expect: { registers: { BC: 0xabcd, DE: 0x1234, A: 9, HL: 0x5566 } },
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Compare character pairs until a difference or the terminator.',
+        code: `        ORG 0x8000
+        LD B,0          ; assume different
+loop:   LD A,(DE)       ; character from the second string
+        CP (HL)         ; same as the first?
+        JR NZ,done      ; no: different
+        OR A            ; both the 0 terminator?
+        JR Z,same
+        INC HL
+        INC DE
+        JR loop
+same:   LD B,1
+done:   HALT
+`,
       },
+    ],
+    tests: [
+      { name: 'cat, cat', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 116, 0] } }, expect: { registers: { B: 1 } } },
+      { name: 'cat, car', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 114, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'cat, ca', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'ca, cat', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 0], '37120': [99, 97, 116, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'both empty', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [0], '37120': [0] } }, expect: { registers: { B: 1 } } },
+    ],
+  },
+  {
+    id: 'bubble-sort',
+    title: 'Sort It Out',
+    difficulty: 'advanced',
+    category: 'memory',
+    description: 'Put a list of numbers in order, smallest first.',
+    task: ['HL points at an array of bytes and B holds how many there are (at least 2).', 'Sort the array in place so it is in ascending order.'],
+    explanation: 'Sorting is a classic exercise, needed wherever data has to be put in order.',
+    starterCode: '        ORG 0x8000\n\n        ; HL = start of the array, B = number of elements (>= 2)\n\n        HALT\n',
+    uses: ['array-loop', 'if-else', 'nested-loops', 'stack'],
+    hints: [
+      { title: 'Hint 1', body: 'Compare each element with the one after it, and swap them if the first is larger. One sweep carries the biggest value to the end.' },
+      { title: 'Hint 2', body: 'Repeat the sweep, each time over one fewer element, until only one is left. That is an outer loop around an inner loop.' },
+      { title: 'Hint 3', body: 'Keep the outer count in C and the inner count in B. PUSH HL before a sweep and POP it afterwards to go back to the start.' },
       {
-        name: 'one is zero',
-        setup: { registers: { BC: 0, DE: 0xffff, A: 1, HL: 0x0102 } },
-        expect: { registers: { BC: 0xffff, DE: 0, A: 1, HL: 0x0102 } },
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Bubble sort: n - 1 sweeps, each swapping out-of-order neighbours.',
+        code: `        ORG 0x8000
+        LD C,B
+        DEC C           ; C = number of sweeps
+outer:  PUSH HL         ; remember the start
+        LD B,C          ; comparisons in this sweep
+inner:  LD A,(HL)       ; element
+        INC HL
+        CP (HL)         ; compare with its neighbour
+        JR C,ok         ; already in order
+        JR Z,ok
+        LD D,(HL)       ; swap the pair
+        LD (HL),A
+        DEC HL
+        LD (HL),D
+        INC HL
+ok:     DJNZ inner
+        POP HL          ; back to the start
+        DEC C
+        JR NZ,outer
+        HALT
+`,
       },
+    ],
+    tests: [
+      { name: 'mixed six', setup: { registers: { HL: 36864, B: 6 }, memory: { '36864': [5, 3, 8, 1, 9, 2] } }, expect: { memory: { '36864': [1, 2, 3, 5, 8, 9] } } },
+      { name: 'already sorted', setup: { registers: { HL: 37120, B: 3 }, memory: { '37120': [1, 2, 3] } }, expect: { memory: { '37120': [1, 2, 3] } } },
+      { name: 'reversed', setup: { registers: { HL: 37376, B: 4 }, memory: { '37376': [9, 7, 4, 1] } }, expect: { memory: { '37376': [1, 4, 7, 9] } } },
+      { name: 'duplicates and a neighbour', setup: { registers: { HL: 37632, B: 4 }, memory: { '37632': [7, 7, 0, 7, 55] } }, expect: { memory: { '37632': [0, 7, 7, 7, 55] } } },
+      { name: 'two items', setup: { registers: { HL: 37888, B: 2 }, memory: { '37888': [2, 1] } }, expect: { memory: { '37888': [1, 2] } } },
+    ],
+  },
+  {
+    id: 'fibonacci',
+    title: 'Rabbit Numbers',
+    difficulty: 'intermediate',
+    category: 'loops',
+    description: 'Each number in the Fibonacci sequence is the sum of the two before it.',
+    task: ['Print the first ten Fibonacci numbers, starting 1 1 2 3 5 and so on.', 'Separate them with single spaces, all on one line.'],
+    explanation: 'The sequence goes 1, 1, 2, 3, 5, 8 ...',
+    starterCode: '        ORG 0x8000\n\n        ; port 0 = character, 1 = number\n\n        HALT\n',
+    uses: ['djnz', 'accumulate', 'print-number', 'print-char'],
+    hints: [
+      { title: 'Hint 1', body: 'Keep the previous number in one register and the current one in another.' },
+      { title: 'Hint 2', body: 'To step along: the new number is current + previous, the new previous is the old current.' },
+      { title: 'Hint 3', body: 'Print the current number and a space on each pass of a ten-times loop. A trailing space is ignored.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Two registers hold the last two values.',
+        code: `        ORG 0x8000
+        LD B,10         ; ten numbers
+        LD D,0          ; previous
+        LD E,1          ; current
+loop:   LD A,E
+        OUT (1),A       ; print the current number
+        LD A,' '
+        OUT (0),A
+        LD A,E
+        ADD A,D         ; next = current + previous
+        LD D,E          ; previous = current
+        LD E,A          ; current = next
+        DJNZ loop
+        HALT
+`,
+      },
+    ],
+    tests: [
+      { name: 'first ten', setup: {  }, expect: { output: '1 1 2 3 5 8 13 21 34 55' } },
+    ],
+  },
+  {
+    id: 'prime-check',
+    title: 'Is It Prime?',
+    difficulty: 'advanced',
+    category: 'conditionals',
+    description: 'A prime number has no divisors except one and itself.',
+    task: ['Register A holds a number from 2 to 100.', 'Put 1 in register B if it is prime, otherwise 0.'],
+    explanation: '2, 3, 5, 7, 11 are prime; 4, 9 and 91 (7 x 13) are not. The Z80 has no divide or remainder instruction.',
+    starterCode: '        ORG 0x8000\n\n        ; A contains a number from 2 to 100\n\n        HALT\n',
+    uses: ['while-loops', 'nested-loops', 'if-equal', 'if-else'],
+    hints: [
+      { title: 'Hint 1', body: 'Try each possible divisor d from 2 upwards. If d reaches the number itself without dividing it, the number is prime.' },
+      { title: 'Hint 2', body: 'To test whether d divides n, keep taking d away from a copy of n while it is at least d, and look at what is left. A remainder of zero means d divides n.' },
+      { title: 'Hint 3', body: 'You need three things at once: n in C, d in D, and the working copy in A. B is the answer.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Trial division using repeated subtraction as the remainder.',
+        code: `        ORG 0x8000
+        LD B,1          ; assume prime
+        LD C,A          ; n
+        LD D,2          ; first divisor to try
+try:    LD A,D
+        CP C            ; reached n itself?
+        JR Z,done       ; no divisor found: prime
+        LD A,C          ; working copy of n
+rem:    CP D
+        JR C,remdone    ; copy < d: A is the remainder
+        SUB D
+        JR rem
+remdone: OR A           ; remainder zero?
+        JR Z,composite
+        INC D           ; try the next divisor
+        JR try
+composite: LD B,0
+done:   HALT
+`,
+      },
+    ],
+    tests: [
+      { name: '2', setup: { registers: { A: 2 } }, expect: { registers: { B: 1 } } },
+      { name: '3', setup: { registers: { A: 3 } }, expect: { registers: { B: 1 } } },
+      { name: '4', setup: { registers: { A: 4 } }, expect: { registers: { B: 0 } } },
+      { name: '17', setup: { registers: { A: 17 } }, expect: { registers: { B: 1 } } },
+      { name: '25', setup: { registers: { A: 25 } }, expect: { registers: { B: 0 } } },
+      { name: '91 = 7 x 13', setup: { registers: { A: 91 } }, expect: { registers: { B: 0 } } },
+      { name: '97', setup: { registers: { A: 97 } }, expect: { registers: { B: 1 } } },
+      { name: '100', setup: { registers: { A: 100 } }, expect: { registers: { B: 0 } } },
+    ],
+  },
+  {
+    id: 'bcd-total',
+    title: 'Decimal Total',
+    difficulty: 'intermediate',
+    category: 'arithmetic',
+    description: 'A till adds up prices stored with one decimal digit per half-byte.',
+    task: ['HL points at an array of two-digit decimal (BCD) numbers and B holds how many there are (at least 1).', 'Add them up as decimal numbers, leaving the BCD total in A. The total is at most 99.'],
+    explanation: 'In BCD the byte 0x47 means forty-seven. Plain binary addition of such bytes gives the wrong digits.',
+    starterCode: '        ORG 0x8000\n\n        ; HL = array of BCD numbers, B = how many\n\n        HALT\n',
+    uses: ['bcd', 'array-loop', 'accumulate'],
+    hints: [
+      { title: 'Hint 1', body: 'Start the total at zero and add the elements one at a time, like any array sum.' },
+      { title: 'Hint 2', body: 'After each ADD, the total must be repaired before you add the next number.' },
+      { title: 'Hint 3', body: 'The repair instruction is DAA, straight after the ADD.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'A running BCD sum: ADD then DAA, element by element.',
+        code: `        ORG 0x8000
+        XOR A           ; total = 0
+loop:   ADD A,(HL)      ; add the next number
+        DAA             ; repair it as decimal
+        INC HL
+        DJNZ loop
+        HALT
+`,
+      },
+    ],
+    tests: [
+      { name: '12 + 34 + 25', setup: { registers: { HL: 36864, B: 3 }, memory: { '36864': [18, 52, 37] } }, expect: { registers: { A: 113 } } },
+      { name: '9 + 9 + 9', setup: { registers: { HL: 37120, B: 3 }, memory: { '37120': [9, 9, 9] } }, expect: { registers: { A: 39 } } },
+      { name: 'one number', setup: { registers: { HL: 37376, B: 1 }, memory: { '37376': [153] } }, expect: { registers: { A: 153 } } },
+      { name: '45 + 54', setup: { registers: { HL: 37632, B: 2 }, memory: { '37632': [69, 84] } }, expect: { registers: { A: 153 } } },
+    ],
+  },
+  {
+    id: 'record-total',
+    title: 'Stock Take',
+    difficulty: 'intermediate',
+    category: 'memory',
+    description: 'A shop stores each item as three bytes: an id, a quantity and a price.',
+    task: ['IX points at the first of several three-byte records, and B holds how many records there are (at least 1).', 'Put the sum of all the quantities (the second byte of each record) into register A. The total fits in a byte.'],
+    explanation: 'Records follow each other in memory, one after another.',
+    starterCode: '        ORG 0x8000\n\n        ; IX = first record (id, quantity, price), B = number of records\n\n        HALT\n',
+    uses: ['index-registers', 'array-loop', 'records'],
+    hints: [
+      { title: 'Hint 1', body: 'The quantity is the field at offset 1 of each record.' },
+      { title: 'Hint 2', body: 'LD A,(IX+1) style addressing reads a field without moving IX. ADD A,(IX+1) adds it straight into the total.' },
+      { title: 'Hint 3', body: 'ADD IX,DE moves IX on by the record size once DE holds 3.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'Add field (IX+1), then step IX on by three.',
+        code: `        ORG 0x8000
+        XOR A           ; total = 0
+        LD DE,3         ; size of a record
+loop:   ADD A,(IX+1)    ; add this record's quantity
+        ADD IX,DE       ; on to the next record
+        DJNZ loop
+        HALT
+`,
+      },
+    ],
+    tests: [
+      { name: 'three records', setup: { registers: { IX: 36864, B: 3 }, memory: { '36864': [1, 5, 100, 2, 7, 50, 3, 0, 10] } }, expect: { registers: { A: 12 } } },
+      { name: 'one record', setup: { registers: { IX: 37120, B: 1 }, memory: { '37120': [9, 200, 1] } }, expect: { registers: { A: 200 } } },
+      { name: 'four of one', setup: { registers: { IX: 37376, B: 4 }, memory: { '37376': [1, 1, 9, 2, 1, 9, 3, 1, 9, 4, 1, 9] } }, expect: { registers: { A: 4 } } },
+    ],
+  },
+  {
+    id: 'insert-gap',
+    title: 'Make Some Room',
+    difficulty: 'intermediate',
+    category: 'memory',
+    description: 'Sometimes you need to open a gap at the start of a block of data.',
+    task: ['HL points at the start of a block and BC holds its length in bytes (at least 1). The byte just after the block is free to use.', 'Move every byte of the block up one address, and put a 0 in the first position.'],
+    explanation: 'The old and new positions of the data overlap.',
+    starterCode: '        ORG 0x8000\n\n        ; HL = start of the block, BC = its length\n\n        HALT\n',
+    uses: ['block-copy', 'sixteen-bit', 'pointers'],
+    hints: [
+      { title: 'Hint 1', body: 'Copy from the end of the block towards the start so nothing is overwritten before it has moved.' },
+      { title: 'Hint 2', body: 'LDDR copies backwards. HL must start at the last byte of the block and DE one byte beyond it.' },
+      { title: 'Hint 3', body: 'After LDDR, HL points one byte below the block start. Step it forward once to write the 0.' },
+      {
+        title: 'Spoiler: full solution',
+        spoiler: true,
+        body: 'LDDR from the last byte, then write a zero at the front.',
+        code: `        ORG 0x8000
+        ADD HL,BC
+        DEC HL          ; HL = last byte of the block
+        LD D,H
+        LD E,L
+        INC DE          ; DE = one past it
+        LDDR            ; copy backwards, BC bytes
+        INC HL          ; HL = the block start again
+        LD (HL),0
+        HALT
+`,
+      },
+    ],
+    tests: [
+      { name: 'four bytes', setup: { registers: { HL: 36864, BC: 4 }, memory: { '36864': [1, 2, 3, 4, 9] } }, expect: { memory: { '36864': [0, 1, 2, 3, 4] } } },
+      { name: 'one byte', setup: { registers: { HL: 37120, BC: 1 }, memory: { '37120': [7, 255] } }, expect: { memory: { '37120': [0, 7] } } },
+      { name: 'ten bytes', setup: { registers: { HL: 37376, BC: 10 }, memory: { '37376': [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 77] } }, expect: { memory: { '37376': [0, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] } } },
     ],
   },
 ]

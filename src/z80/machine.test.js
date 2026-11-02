@@ -11,6 +11,12 @@ describe('Machine', () => {
     expect(m.output).toBe('H42\n')
     expect(PORT.CHAR).toBe(0)
   })
+  it('OUT (C),A prints through the port held in C', () => {
+    const m = new Machine()
+    m.load(assemble("LD C,0\nLD A,'Q'\nOUT (C),A\nLD C,1\nLD A,7\nOUT (C),A\nHALT"))
+    m.run()
+    expect(m.output).toBe('Q7')
+  })
   it('reports unsupported ports instead of ignoring them', () => {
     const out = new Machine()
     out.load(assemble('OUT (9),A\nHALT'))
@@ -60,6 +66,8 @@ describe('Machine', () => {
     expect(m.getRegisters()).toMatchObject({ BC: 0x1111, DE: 0x2222, HL: 0x3333, SP: 0x4444 })
     m.poke(0x9000, [1, 2])
     expect(m.memory[0x9001]).toBe(2)
+    m.setRegisters({ IX: 0x1234, IY: 0xabcd, F: 1 })
+    expect(m.getRegisters()).toMatchObject({ IX: 0x1234, IY: 0xabcd, F: 1 })
     m.setRegisters()
     expect(() => m.setRegisters({ Q: 1 })).toThrow(/Unknown register/)
   })

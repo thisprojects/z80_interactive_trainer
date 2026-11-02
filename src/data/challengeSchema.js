@@ -19,6 +19,7 @@
 //   hints:       [{ title: 'Hint 1', body: '...' }, ...,  // hidden until opened; nudge first, near-answer last
 //                 { title: 'Spoiler: full solution', spoiler: true, body: '...', code: '...' }],
 //                                                        // the last hint is a spoiler: it shows a complete answer
+//   uses:        ['lesson-id', ...],                      // the lessons it builds on (shown in the pane; ids must exist)
 //   requires:    { call: { label: 'double', min: 3 } },  // optional: the program must define this
 //                                                        // label and CALL it at least `min` times
 //   tests: [{
@@ -35,25 +36,22 @@
 export const DIFFICULTIES = ['beginner', 'intermediate', 'advanced']
 export const CATEGORIES = ['basics', 'arithmetic', 'conditionals', 'loops', 'memory', 'subroutines', 'output']
 
-const isString = (v) => typeof v === 'string' && v.trim() !== ''
+export const isString = (v) => typeof v === 'string' && v.trim() !== ''
 
-// Returns a list of problems with a challenge (empty when valid).
-export function validateChallenge(c) {
-  const errors = []
-  if (!c || typeof c !== 'object') return ['challenge must be an object']
-  for (const key of ['id', 'title', 'category', 'description', 'explanation', 'starterCode']) {
+// The fields a lesson and a challenge share: id, title, starter code, task, hints, tests and
+// requires. Pushes any problems onto `errors`.
+export function validateTaskFields(c, errors) {
+  for (const key of ['id', 'title', 'starterCode']) {
     if (!isString(c[key])) errors.push(`${key} must be a non-empty string`)
   }
   if (isString(c.id) && !/^[a-z0-9-]+$/.test(c.id)) errors.push('id must be lowercase letters, digits and dashes')
   if (isString(c.starterCode) && !/^\s*ORG\s+0x8000\b/i.test(c.starterCode)) errors.push('starterCode must begin with ORG 0x8000')
-  if (isString(c.category) && !CATEGORIES.includes(c.category)) errors.push(`category must be one of ${CATEGORIES.join(', ')}`)
   if (c.requires !== undefined) {
     const call = c.requires?.call
     if (!call || !isString(call.label) || !Number.isInteger(call.min) || call.min < 1) {
       errors.push('requires.call must be { label: string, min: positive integer }')
     }
   }
-  if (!DIFFICULTIES.includes(c.difficulty)) errors.push(`difficulty must be one of ${DIFFICULTIES.join(', ')}`)
   if (!Array.isArray(c.task) || c.task.length === 0 || !c.task.every(isString)) {
     errors.push('task must be a non-empty array of strings')
   }
@@ -77,17 +75,40 @@ export function validateChallenge(c) {
       }
     })
   }
+}
+
+// Reports ids that appear more than once across one or more lists of items.
+export function duplicateIds(...lists) {
+  const seen = new Set()
+  const errors = []
+  for (const list of lists) {
+    for (const c of list) {
+      if (seen.has(c?.id)) errors.push(`duplicate id "${c.id}"`)
+      seen.add(c?.id)
+    }
+  }
+  return errors
+}
+
+// Returns a list of problems with a challenge (empty when valid).
+export function validateChallenge(c) {
+  const errors = []
+  if (!c || typeof c !== 'object') return ['challenge must be an object']
+  validateTaskFields(c, errors)
+  for (const key of ['category', 'description', 'explanation']) {
+    if (!isString(c[key])) errors.push(`${key} must be a non-empty string`)
+  }
+  if (isString(c.category) && !CATEGORIES.includes(c.category)) errors.push(`category must be one of ${CATEGORIES.join(', ')}`)
+  if (c.uses !== undefined && !(Array.isArray(c.uses) && c.uses.length > 0 && c.uses.every(isString))) errors.push('uses must be a non-empty array of lesson ids')
+  if (!DIFFICULTIES.includes(c.difficulty)) errors.push(`difficulty must be one of ${DIFFICULTIES.join(', ')}`)
   return errors
 }
 
 // Validates a whole array, including id uniqueness.
 export function validateChallenges(list) {
   const errors = []
-  const seen = new Set()
   list.forEach((c, i) => {
     validateChallenge(c).forEach((e) => errors.push(`challenge ${c?.id ?? i}: ${e}`))
-    if (seen.has(c?.id)) errors.push(`duplicate id "${c.id}"`)
-    seen.add(c?.id)
   })
-  return errors
+  return [...errors, ...duplicateIds(list)]
 }

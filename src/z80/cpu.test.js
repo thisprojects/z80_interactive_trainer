@@ -372,9 +372,8 @@ describe('I/O and block ops', () => {
 
 describe('unsupported opcodes', () => {
   it.each([
-    [[0x08], /Unsupported/], [[0x27], /DAA/], [[0xd9], /EXX/], [[0xdd], /Unsupported/],
-    [[0xfd], /Unsupported/], [[0xf3], /Unsupported/], [[0xe3], /Unsupported/],
-    [[0xed, 0x00], /ED/],
+    [[0xf3], /Unsupported/], [[0xdd, 0x00], /Unsupported opcode DD/], [[0xfd, 0x00], /Unsupported opcode FD/],
+    [[0xdd, 0xcb, 0x00, 0x00], /Unsupported opcode DD CB|Unsupported opcode DD/], [[0xed, 0x00], /ED/],
   ])('%j', (code, pattern) => {
     expect(() => make(code).step()).toThrow(pattern)
   })
@@ -389,5 +388,132 @@ describe('golden results from a reference Z80', () => {
     cpu.a = a; cpu.f = f; cpu.r[0] = b
     run(cpu)
     expect({ A: cpu.a, F: cpu.f & FLAGS_MASK, B: cpu.r[0] }).toEqual({ A: wantA, F: wantF & FLAGS_MASK, B: wantB })
+  })
+})
+
+describe('extended instructions', () => {
+  const at = (code) => { const c = make(code); c.pc = 0; return c }
+  it('ADC HL and SBC HL use and set the carry', () => {
+    const cpu = at([0xed, 0x4a, 0xed, 0x42]) // ADC HL,BC ; SBC HL,BC
+    cpu.hl = 0xffff; cpu.bc = 1; cpu.f = FLAG.C
+    run(cpu)
+    expect(cpu.hl).toBe(1) // 0xffff + 1 + carry
+    expect(cpu.f & FLAG.C).toBe(FLAG.C)
+    run(cpu)
+    expect(cpu.hl).toBe(0xffff) // 1 - 1 - carry
+    expect(cpu.f & FLAG.C).toBe(FLAG.C)
+  })
+  it('LD (nn),rr and LD rr,(nn) store little-endian', () => {
+    const cpu = at([0xed, 0x43, 0x00, 0x90, 0xed, 0x5b, 0x00, 0x90]) // LD (9000),BC ; LD DE,(9000)
+    cpu.bc = 0x1234
+    run(cpu, 2)
+    expect([cpu.mem[0x9000], cpu.mem[0x9001], cpu.de]).toEqual([0x34, 0x12, 0x1234])
+  })
+  it('EX (SP),HL swaps with the top of the stack', () => {
+    const cpu = at([0xe3])
+    cpu.sp = 0x9000; cpu.mem.set([0x34, 0x12], 0x9000); cpu.hl = 0xabcd
+    run(cpu)
+    expect([cpu.hl, cpu.mem[0x9000], cpu.mem[0x9001]]).toEqual([0x1234, 0xcd, 0xab])
+  })
+  it('EXX and EX AF,AF\' swap with the shadow registers', () => {
+    const cpu = at([0xd9, 0x08, 0xd9, 0x08])
+    cpu.bc = 1; cpu.de = 2; cpu.hl = 3; cpu.a = 9; cpu.f = 0x41
+    run(cpu)
+    expect([cpu.bc, cpu.de, cpu.hl]).toEqual([0, 0, 0])
+    run(cpu)
+    expect([cpu.a, cpu.f]).toEqual([0, 0])
+    run(cpu, 2)
+    expect([cpu.bc, cpu.de, cpu.hl, cpu.a, cpu.f]).toEqual([1, 2, 3, 9, 0x41])
+  })
+  it('LDI and LDD move one byte; CPIR stops at a match', () => {
+    const cpu = at([0xed, 0xa0, 0xed, 0xa8])
+    cpu.mem.set([5, 6], 0x9000)
+    cpu.hl = 0x9000; cpu.de = 0x9100; cpu.bc = 2
+    run(cpu)
+    expect([cpu.mem[0x9100], cpu.hl, cpu.de, cpu.bc, cpu.f & FLAG.PV]).toEqual([5, 0x9001, 0x9101, 1, FLAG.PV])
+    run(cpu)
+    expect([cpu.mem[0x9101], cpu.bc, cpu.f & FLAG.PV]).toEqual([6, 0, 0])
+    const find = at([0xed, 0xb1]) // CPIR
+    find.mem.set([1, 2, 3, 4], 0x9000)
+    find.a = 3; find.hl = 0x9000; find.bc = 4
+    run(find, 3)
+    expect([find.hl, find.bc, find.f & FLAG.Z, find.pc]).toEqual([0x9003, 1, FLAG.Z, 2])
+    const miss = at([0xed, 0xb9]) // CPDR runs out of bytes
+    miss.mem.set([1, 2], 0x9000)
+    miss.a = 9; miss.hl = 0x9001; miss.bc = 2
+    run(miss, 2)
+    expect([miss.bc, miss.f & FLAG.Z, miss.f & FLAG.PV]).toEqual([0, 0, 0])
+  })
+  it('DAA corrects BCD addition and subtraction', () => {
+    const add = at([0xc6, 0x27, 0x27]) // ADD A,0x27 ; DAA
+    add.a = 0x15
+    run(add, 2)
+    expect(add.a).toBe(0x42)
+    const carry = at([0xc6, 0x01, 0x27]) // 99 + 1
+    carry.a = 0x99
+    run(carry, 2)
+    expect([carry.a, carry.f & FLAG.C]).toEqual([0, FLAG.C])
+    const sub = at([0xd6, 0x08, 0x27]) // SUB 8 ; DAA  (42 - 8)
+    sub.a = 0x42
+    run(sub, 2)
+    expect(sub.a).toBe(0x34)
+  })
+  it('OUT (C),r writes to the port in C', () => {
+    const seen = []
+    const cpu = make([0xed, 0x79, 0xed, 0x71], { onOut: (p, v) => seen.push([p, v]) }) // OUT (C),A ; OUT (C),0
+    cpu.pc = 0; cpu.r[1] = 5; cpu.a = 65
+    run(cpu, 2)
+    expect(seen).toEqual([[5, 65], [5, 0]])
+  })
+  it.each([['ix', 0xdd], ['iy', 0xfd]])('%s: load, add, offset access, ALU, bits and stack', (reg, pre) => {
+    const cpu = at([
+      pre, 0x21, 0x00, 0x90, // LD IX,0x9000
+      pre, 0x36, 0x02, 0x7f, // LD (IX+2),0x7f
+      pre, 0x7e, 0x02, // LD A,(IX+2)
+      pre, 0x86, 0x02, // ADD A,(IX+2)
+      pre, 0x34, 0x02, // INC (IX+2)
+      pre, 0xcb, 0xfe, 0xce, // SET 1,(IX-2)
+      pre, 0x23, // INC IX
+      pre, 0x09, // ADD IX,BC
+      pre, 0xe5, 0xc1, // PUSH IX ; POP BC
+      pre, 0x77, 0xff, // LD (IX-1),A
+    ])
+    cpu.bc = 0x0100
+    run(cpu, 2)
+    expect([cpu[reg], cpu.mem[0x9002]]).toEqual([0x9000, 0x7f])
+    run(cpu, 2)
+    expect(cpu.a).toBe(0xfe)
+    run(cpu)
+    expect(cpu.mem[0x9002]).toBe(0x80)
+    run(cpu)
+    expect(cpu.mem[0x8ffe]).toBe(2)
+    run(cpu, 2)
+    expect(cpu[reg]).toBe(0x9101)
+    run(cpu, 2)
+    expect(cpu.bc).toBe(0x9101)
+    run(cpu)
+    expect(cpu.mem[0x9100]).toBe(0xfe)
+  })
+  it('IX jumps, loads the stack pointer and swaps with the stack', () => {
+    const cpu = at([0xdd, 0xe9, 0, 0, 0, 0, 0x3c, 0xfd, 0xf9, 0xdd, 0xe3])
+    cpu.ix = 6
+    run(cpu)
+    expect(cpu.pc).toBe(6)
+    cpu.pc = 7; cpu.iy = 0x9000
+    run(cpu)
+    expect(cpu.sp).toBe(0x9000)
+    cpu.mem.set([0x34, 0x12], 0x9000)
+    cpu.ix = 0xabcd
+    cpu.pc = 9
+    run(cpu)
+    expect([cpu.ix, cpu.mem[0x9000]]).toEqual([0x1234, 0xcd])
+  })
+  it('IX LD (nn) and LD IX,(nn) round trip', () => {
+    const cpu = at([0xdd, 0x22, 0x00, 0x90, 0xdd, 0x2a, 0x00, 0x90])
+    cpu.ix = 0xbeef
+    run(cpu)
+    cpu.ix = 0
+    run(cpu)
+    expect(cpu.ix).toBe(0xbeef)
   })
 })

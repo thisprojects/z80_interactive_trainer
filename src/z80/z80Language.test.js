@@ -24,6 +24,7 @@ function tokenize(line) {
     },
     skipToEnd() { pos = line.length },
     next() { return line[pos++] },
+    peek() { return line[pos] },
     current() { return line.slice(start, pos) },
   }
   const out = []
@@ -47,6 +48,8 @@ describe('z80 language', () => {
     expect(tokenize('ORG 0x8000')[0]).toEqual(['ORG', 'meta'])
     expect(tokenize('JR NZ,top')).toEqual([['JR', 'keyword'], ['NZ', 'atom'], [',', null], ['top', 'variableName']])
     expect(tokenize('DB "hi",\'x\'').map((t) => t[1])).toEqual(['meta', 'string', null, 'string'])
+    expect(tokenize("EX AF,AF' ; swap")).toEqual([['EX', 'keyword'], ['AF', 'atom'], [',', null], ["AF'", 'atom'], ['; swap', 'comment']])
+    expect(tokenize('CPIR')[0]).toEqual(['CPIR', 'keyword'])
     expect(tokenize('LD A,(HL)').map((t) => t[1])).toEqual(['keyword', 'atom', null, null, 'atom', null])
   })
 })

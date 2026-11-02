@@ -14,8 +14,8 @@ msg:    DB "Hi",0
 ```
 
 - Mnemonics, registers, labels and directives are not case-sensitive.
-- One instruction per line. Indented lines need a colon on any label. An un-indented word that is not an instruction is read as a label, except that the name of an unsupported instruction on its own (`LDI`, `DI`, `EXX`...) is an error so it is never silently ignored; `ldi EQU 5` or `ldi: NOP` is still a label.
-- Labels cannot be named like a register or condition: `A B C D E H L AF BC DE HL SP NZ Z NC PO PE P M`.
+- One instruction per line. Indented lines need a colon on any label. An un-indented word that is not an instruction is read as a label, except that the name of an unsupported instruction on its own (`INI`, `DI`, `RETI`...) is an error so it is never silently ignored; `ini EQU 5` or `ini: NOP` is still a label.
+- Labels cannot be named like a register or condition: `A B C D E H L AF BC DE HL SP IX IY NZ Z NC PO PE P M`.
 - A label can only be defined once. `EQU` constants share the same namespace.
 
 ## Numbers, characters and expressions
@@ -53,26 +53,27 @@ Rules worth knowing:
 
 | Group | Forms |
 | --- | --- |
-| Load | `LD r,r'` `LD r,n` `LD r,(HL)` `LD (HL),r` `LD (HL),n` `LD rr,nn` `LD SP,HL` `LD A,(BC)` `LD A,(DE)` `LD (BC),A` `LD (DE),A` `LD A,(nn)` `LD (nn),A` `LD HL,(nn)` `LD (nn),HL` |
+| Load | `LD r,r'` `LD r,n` `LD r,(HL)` `LD (HL),r` `LD (HL),n` `LD rr,nn` `LD SP,HL` `LD A,(BC)` `LD A,(DE)` `LD (BC),A` `LD (DE),A` `LD A,(nn)` `LD (nn),A` `LD HL,(nn)` `LD (nn),HL` `LD (nn),BC/DE/SP` `LD BC/DE/SP,(nn)` |
 | Stack | `PUSH` / `POP` with `BC DE HL AF` |
-| Exchange | `EX DE,HL` |
+| Exchange | `EX DE,HL` `EX AF,AF'` `EXX` `EX (SP),HL` `EX (SP),IX` `EX (SP),IY` |
 | 8-bit arithmetic and logic | `ADD ADC SUB SBC AND XOR OR CP` with `r`, `n` or `(HL)`; `ADD A,x` and the short form `SUB x` both work |
-| 16-bit arithmetic | `ADD HL,rr` `INC rr` `DEC rr` (`rr` = `BC DE HL SP`) |
+| 16-bit arithmetic | `ADD HL,rr` `ADC HL,rr` `SBC HL,rr` `INC rr` `DEC rr` (`rr` = `BC DE HL SP`) |
 | Increment | `INC r` `DEC r` including `(HL)` |
-| Accumulator | `RLCA RRCA RLA RRA CPL NEG SCF CCF` |
+| Accumulator | `RLCA RRCA RLA RRA CPL NEG SCF CCF DAA` |
 | Rotate and shift | `RLC RRC RL RR SLA SRA SLL SRL` on `r` or `(HL)` |
 | Bits | `BIT b,r` `SET b,r` `RES b,r` |
 | Jumps | `JP nn` `JP cc,nn` `JP (HL)` `JR e` `JR cc,e` (cc = `NZ Z NC C`) `DJNZ e` |
 | Calls | `CALL nn` `CALL cc,nn` `RET` `RET cc` `RST n` (n = 0, 8, ... 56) |
-| Block | `LDIR` `LDDR` |
-| I/O | `OUT (n),A` (see below) |
+| Block and search | `LDI` `LDD` `LDIR` `LDDR` `CPI` `CPD` `CPIR` `CPDR` |
+| Index registers | `IX` and `IY` with `(IX+d)` offsets (-128..127): `LD IX,nn` `LD IX,(nn)` `LD (nn),IX` `LD SP,IX` `INC IX` `DEC IX` `ADD IX,rr` (`rr` = `BC DE SP IX`) `PUSH IX` `POP IX` `JP (IX)`, and on `(IX+d)`: `LD r,(IX+d)` `LD (IX+d),r` `LD (IX+d),n` `INC` `DEC` the ALU group `ADD ADC SUB SBC AND XOR OR CP` the shifts `RLC RRC RL RR SLA SRA SLL SRL` and `BIT SET RES`. `IY` works the same way. |
+| I/O | `OUT (n),A` `OUT (C),r` (see below) |
 | Other | `NOP` `HALT` |
 
 `r` is `A B C D E H L` (or `(HL)` where noted); `cc` for `JP`, `CALL` and `RET` is `NZ Z NC C PO PE P M`.
 
 ## Not supported (clear errors)
 
-`DAA`, `EXX`, `EX AF,AF'`, `EX (SP),HL`, the IX/IY registers, `ADC HL,rr`, `SBC HL,rr`, `LD (nn),BC/DE/SP`, `LD A,I/R`, `LDI`, `LDD`, `CPI`, `CPD`, `CPIR`, `CPDR`, the other block I/O instructions, `RLD`, `RRD`, `DI`, `EI`, `IM`, `RETI`, `RETN`, `OUT (C),r` and `IN r,(C)`. There are no interrupts. `IN A,(n)` assembles but stops the program when it runs, because the console is output-only.
+`LD A,I/R`, the other block I/O instructions (`INI`, `INIR`, `OTIR` and friends), `RLD`, `RRD`, `DI`, `EI`, `IM`, `RETI`, `RETN`, `IN r,(C)`, and the undocumented halves of the index registers (`IXH`, `IXL`, `IYH`, `IYL`). There are no interrupts. `IN A,(n)` assembles but stops the program when it runs, because the console is output-only.
 
 ## Running a program
 

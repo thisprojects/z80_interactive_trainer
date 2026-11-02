@@ -7,7 +7,8 @@ import InstructionPane from './InstructionPane.jsx'
 import OutputPanel from './OutputPanel.jsx'
 import EditorPane from './EditorPane.jsx'
 import CheatSheet from './CheatSheet.jsx'
-import ChallengeMenu from './ChallengeMenu.jsx'
+import ItemMenu from './ItemMenu.jsx'
+import LessonPane from './LessonPane.jsx'
 
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, onChange }) => (
@@ -25,7 +26,7 @@ describe('NavBar', () => {
   const list = [{ id: 'a', title: 'Alpha' }, { id: 'b', title: 'Beta' }]
   it('lists challenges and reports changes and clicks', async () => {
     const onSelect = vi.fn(); const onRun = vi.fn(); const onReset = vi.fn()
-    render(<NavBar challenges={list} selectedId="a" onSelect={onSelect} onRun={onRun} onReset={onReset} />)
+    render(<NavBar items={list} selectedId="a" onSelect={onSelect} onRun={onRun} onReset={onReset} />)
     await userEvent.click(screen.getByRole('button', { name: /Select challenge/ }))
     expect(screen.getByRole('option', { name: '1. Alpha' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('option', { name: '2. Beta' }))
@@ -127,12 +128,12 @@ describe('accessibility and styling', () => {
 describe('NavBar cheat sheet toggle', () => {
   it('toggles the cheat sheet and hides the run controls while it is open', async () => {
     const onToggle = vi.fn()
-    const props = { challenges: [{ id: 'a', title: 'Alpha' }], selectedId: 'a', onSelect: vi.fn(), onRun: vi.fn(), onReset: vi.fn(), onToggleCheatSheet: onToggle }
+    const props = { items: [{ id: 'a', title: 'Alpha' }], selectedId: 'a', onSelect: vi.fn(), onRun: vi.fn(), onReset: vi.fn(), onToggleCheatSheet: onToggle }
     const { rerender } = render(<NavBar {...props} />)
     await userEvent.click(screen.getByRole('button', { name: 'Cheat sheet' }))
     expect(onToggle).toHaveBeenCalled()
     rerender(<NavBar {...props} showCheatSheet />)
-    expect(screen.getByRole('button', { name: 'Back to challenges' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Run' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Select challenge/ })).not.toBeInTheDocument()
   })
@@ -162,11 +163,11 @@ describe('Spoiler hint', () => {
   })
 })
 
-describe('ChallengeMenu', () => {
+describe('ItemMenu', () => {
   const list = [{ id: 'a', title: 'Alpha' }, { id: 'b', title: 'Beta' }, { id: 'c', title: 'Gamma' }]
   const setup = () => {
     const onSelect = vi.fn()
-    render(<><span>outside</span><ChallengeMenu challenges={list} selectedId="b" onSelect={onSelect} /></>)
+    render(<><span>outside</span><ItemMenu items={list} selectedId="b" onSelect={onSelect} /></>)
     return { onSelect, button: screen.getByRole('button', { name: 'Select challenge: 2. Beta' }) }
   }
 
@@ -203,6 +204,14 @@ describe('ChallengeMenu', () => {
     await userEvent.keyboard('{Escape}{Home}') // harmless while closed
   })
 
+  it('ignores keys it does not use', async () => {
+    const { onSelect, button } = setup()
+    button.focus()
+    await userEvent.keyboard('x')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('selects with the mouse', async () => {
     const { onSelect, button } = setup()
     await userEvent.click(button)
@@ -210,5 +219,106 @@ describe('ChallengeMenu', () => {
     await userEvent.click(screen.getByRole('option', { name: '3. Gamma' }))
     expect(onSelect).toHaveBeenCalledWith('c')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+})
+
+describe('NavBar tabs', () => {
+  const props = { items: [{ id: 'a', title: 'Alpha' }], selectedId: 'a', onSelect: vi.fn(), onRun: vi.fn(), onReset: vi.fn() }
+  it('shows Learn and Challenges tabs, marks the current one and reports changes', async () => {
+    const onTabChange = vi.fn()
+    const { rerender } = render(<NavBar {...props} tab="learn" onTabChange={onTabChange} />)
+    expect(screen.getByRole('tab', { name: 'Learn' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('button', { name: /Select lesson/ })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: 'Challenges' }))
+    expect(onTabChange).toHaveBeenCalledWith('challenges')
+    rerender(<NavBar {...props} tab="challenges" onTabChange={onTabChange} />)
+    expect(screen.getByRole('button', { name: /Select challenge/ })).toBeInTheDocument()
+    rerender(<NavBar {...props} tab="challenges" onTabChange={onTabChange} showCheatSheet />)
+    expect(screen.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'false') // the cheat sheet is showing
+  })
+})
+
+describe('ItemMenu groups and ticks', () => {
+  const items = [
+    { id: 'a', title: 'Alpha', module: 'One' }, { id: 'b', title: 'Beta', module: 'One' }, { id: 'c', title: 'Gamma', module: 'Two' },
+  ]
+  it('lists each module heading once and ticks finished items', async () => {
+    render(<ItemMenu items={items} selectedId="a" onSelect={vi.fn()} noun="lesson" done={new Set(['b'])} />)
+    await userEvent.click(screen.getByRole('button', { name: /Select lesson/ }))
+    expect(screen.getAllByText('One')).toHaveLength(1)
+    expect(screen.getByText('Two')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^2\. Beta\s*\(completed\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '1. Alpha' })).toBeInTheDocument()
+  })
+})
+
+describe('LessonPane', () => {
+  const lesson = {
+    id: 'l1', title: 'A lesson', module: 'Module X', intro: 'Learn `LD` now.',
+    content: [
+      { type: 'text', text: 'Some `code` here.' },
+      { type: 'tip', text: 'A tip.' },
+      { type: 'code', code: 'LD A,1', caption: 'caption `x`', prints: 'hi\n' },
+      { type: 'code', code: 'LD A,2', prints: '' },
+      { type: 'compare', high: 'a = 1', z80: 'LD A,1' },
+      { type: 'table', head: ['H1'], rows: [['cell `c`']] },
+      { type: 'table', rows: [['plain']] },
+      { type: 'mystery' },
+    ],
+    task: ['Do it'], hints: [{ title: 'Hint 1', body: 'secret' }],
+  }
+  const show = (extra = {}) => {
+    const handlers = { onPrevious: vi.fn(), onNext: vi.fn() }
+    render(<LessonPane lesson={lesson} index={1} total={3} done={false} {...handlers} {...extra} />)
+    return handlers
+  }
+  it('shows the module, position, content blocks, task and hidden hints', () => {
+    show()
+    expect(screen.getByText('Module X')).toBeInTheDocument()
+    expect(screen.getByText('Lesson 2 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'A lesson', level: 2 })).toBeInTheDocument()
+    expect(screen.getByText('A tip.')).toBeInTheDocument()
+    expect(screen.getByText('In a high-level language')).toBeInTheDocument()
+    expect(screen.getByText('H1')).toBeInTheDocument()
+    expect(screen.getByText('hi\\n')).toBeInTheDocument() // printed newline is shown escaped
+    expect(screen.getByText('(nothing)')).toBeInTheDocument()
+    expect(screen.getByText('Do it')).toBeInTheDocument()
+    expect(screen.queryByText('secret')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Done/)).not.toBeInTheDocument()
+  })
+  it('marks a finished lesson', () => {
+    show({ done: true })
+    expect(screen.getByText('✓ Done')).toBeInTheDocument()
+  })
+  it('has Previous and Next, disabling Previous on the first lesson', async () => {
+    const h = show()
+    await userEvent.click(screen.getByRole('button', { name: /Previous/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Next/ }))
+    expect(h.onPrevious).toHaveBeenCalled()
+    expect(h.onNext).toHaveBeenCalled()
+  })
+  it('disables Previous at the start and offers Challenges at the end', () => {
+    const first = render(<LessonPane lesson={lesson} index={0} total={3} done={false} onPrevious={vi.fn()} onNext={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Previous/ })).toBeDisabled()
+    first.unmount()
+    render(<LessonPane lesson={lesson} index={2} total={3} done={false} onPrevious={vi.fn()} onNext={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Go to Challenges →' })).toBeInTheDocument()
+  })
+})
+
+describe('InstructionPane builds-on line', () => {
+  it('lists the lessons a challenge builds on, and nothing when there are none', () => {
+    const { rerender } = render(<InstructionPane challenge={challenge} buildsOn={['Loops with a counter', 'Strings']} />)
+    expect(screen.getByText('Builds on: Loops with a counter, Strings')).toBeInTheDocument()
+    rerender(<InstructionPane challenge={challenge} />)
+    expect(screen.queryByText(/Builds on/)).not.toBeInTheDocument()
+  })
+})
+
+describe('InstructionPane done badge', () => {
+  it('shows a Done badge for a finished challenge', () => {
+    render(<InstructionPane challenge={challenge} done />)
+    expect(screen.getByText('✓ Done')).toBeInTheDocument()
   })
 })

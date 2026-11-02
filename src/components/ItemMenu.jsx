@@ -1,15 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
-// A dropdown for choosing a challenge. It replaces a native <select> because browsers
-// decide where a native list opens (sometimes above the page); this one always opens
-// directly below its button and scrolls inside itself if the list is long.
-export default function ChallengeMenu({ challenges, selectedId, onSelect }) {
+// A dropdown for choosing a lesson or a challenge. It replaces a native <select> because
+// browsers decide where a native list opens (sometimes above the page); this one always opens
+// directly below its button and scrolls inside itself if the list is long. Items that have a
+// `module` are listed under a heading for it, and finished items carry a tick.
+export default function ItemMenu({ items, selectedId, onSelect, noun = 'challenge', done = new Set() }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const root = useRef(null)
   const listId = useId()
-  const selectedIndex = Math.max(0, challenges.findIndex((c) => c.id === selectedId))
-  const selected = challenges[selectedIndex]
+  const selectedIndex = Math.max(0, items.findIndex((c) => c.id === selectedId))
+  const selected = items[selectedIndex]
   const optionId = (i) => `${listId}-${i}`
 
   useEffect(() => {
@@ -30,12 +31,12 @@ export default function ChallengeMenu({ challenges, selectedId, onSelect }) {
     setOpen(true)
   }
   const choose = (i) => {
-    onSelect(challenges[i].id)
+    onSelect(items[i].id)
     setOpen(false)
   }
 
   const onKeyDown = (e) => {
-    const last = challenges.length - 1
+    const last = items.length - 1
     const move = (to) => {
       e.preventDefault()
       if (!open) openMenu()
@@ -70,7 +71,7 @@ export default function ChallengeMenu({ challenges, selectedId, onSelect }) {
     <div ref={root} className="sm:relative">
       <button
         type="button"
-        aria-label={`Select challenge: ${selectedIndex + 1}. ${selected.title}`}
+        aria-label={`Select ${noun}: ${selectedIndex + 1}. ${selected.title}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
@@ -79,7 +80,7 @@ export default function ChallengeMenu({ challenges, selectedId, onSelect }) {
         onKeyDown={onKeyDown}
         className="flex max-w-[60vw] items-center gap-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100 hover:bg-slate-700"
       >
-        <span className="text-slate-400">Challenge</span>
+        <span className="text-slate-400 capitalize">{noun}</span>
         <span className="truncate">{selectedIndex + 1}. {selected.title}</span>
         <span aria-hidden="true" className="text-slate-400">▾</span>
       </button>
@@ -87,21 +88,31 @@ export default function ChallengeMenu({ challenges, selectedId, onSelect }) {
         <ul
           id={listId}
           role="listbox"
-          aria-label="Challenges"
+          aria-label={`${noun[0].toUpperCase()}${noun.slice(1)}s`}
           className="absolute left-4 right-4 top-full z-50 mt-1 max-h-[min(24rem,calc(100dvh-5rem))] overflow-y-auto rounded border border-slate-600 bg-slate-800 py-1 shadow-xl sm:left-0 sm:right-auto sm:w-80"
         >
-          {challenges.map((c, i) => (
-            <li
-              key={c.id}
-              id={optionId(i)}
-              role="option"
-              aria-selected={c.id === selectedId}
-              data-value={c.id}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => choose(i)}
-              className={`cursor-pointer px-3 py-1.5 text-sm ${i === active ? 'bg-slate-700 text-white' : 'text-slate-200'} ${c.id === selectedId ? 'font-semibold text-emerald-300' : ''}`}
-            >
-              {i + 1}. {c.title}
+          {items.map((c, i) => (
+            <li key={c.id} role="presentation">
+              {c.module && c.module !== items[i - 1]?.module && (
+                <div role="presentation" className="px-3 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{c.module}</div>
+              )}
+              <div
+                id={optionId(i)}
+                role="option"
+                aria-selected={c.id === selectedId}
+                data-value={c.id}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => choose(i)}
+                className={`flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-sm ${i === active ? 'bg-slate-700 text-white' : 'text-slate-200'} ${c.id === selectedId ? 'font-semibold text-emerald-300' : ''}`}
+              >
+                <span>{i + 1}. {c.title}</span>
+                {done.has(c.id) && (
+                  <span className="text-emerald-400">
+                    <span aria-hidden="true">✓</span>
+                    <span className="sr-only"> (completed)</span>
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

@@ -19,7 +19,8 @@ ORG, PTR = 0x8000, 0x9000
 INTERESTING = [0, 1, 2, 3, 0x0E, 0x0F, 0x10, 0x11, 0x3C, 0x55, 0x7E, 0x7F, 0x80, 0x81, 0x8F, 0x90, 0xAA, 0xF0, 0xFE, 0xFF]
 VALS = sorted(set(INTERESTING + random.sample(range(256), 12)))
 REGS = {'B': 0, 'C': 1, 'D': 2, 'E': 3, 'H': 4, 'L': 5, '(HL)': 6, 'A': 7}
-STATE_KEYS = ['a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'sp', 'pc']
+STATE_KEYS = ['a', 'f', 'b', 'c', 'd', 'e', 'h', 'l', 'sp', 'pc', 'ix', 'iy',
+              'alt_a', 'alt_f', 'alt_b', 'alt_c', 'alt_d', 'alt_e', 'alt_h', 'alt_l']
 
 cases = []
 
@@ -162,19 +163,109 @@ add('LD HL,(nn)', [0x2A, 0x0B, PTR >> 8])
 for n in (0, 1, 2, 3):
     add(f'LDDR bc={n or 5}', [0xED, 0xB8], b=0, c=n or 5, d=PTR + 0x100 >> 8, e=0x0C, h=PTR >> 8, l=0x0C)
 
+# ---- extended instructions: 16-bit carry maths, block search, BCD, shadow registers, IX/IY ----
+def pair_init(name, v, init):
+    if name == 'BC': init['b'], init['c'] = v >> 8, v & 0xFF
+    elif name == 'DE': init['d'], init['e'] = v >> 8, v & 0xFF
+    elif name == 'SP': init['sp'] = v
+
+V16 = [0, 1, 0x0FFF, 0x1000, 0x7FFF, 0x8000, 0x8001, 0xFFFF, 0x1234, 0xF0F0]
+for hl in V16:
+    for rr, nm in enumerate(('BC', 'DE', 'HL', 'SP')):
+        for v in V16:
+            for cf in (0, 1):
+                for op, base in (('ADC', 0x4A), ('SBC', 0x42)):
+                    init = {'h': hl >> 8, 'l': hl & 0xFF, 'f': random.randrange(256) & ~1 | cf}
+                    pair_init(nm, v, init)
+                    add(f'{op} HL,{nm} hl={hl:04X} v={v:04X} c={cf}', [0xED, base | rr << 4], **init)
+
+for rr, nm in enumerate(('BC', 'DE', 'HL', 'SP')):
+    add(f'LD (nn),{nm} ED', [0xED, 0x43 | rr << 4, 0x20, PTR >> 8], b=0x11, c=0x22, d=0x33, e=0x44, h=0x55, l=0x66, sp=0x7788)
+    add(f'LD {nm},(nn) ED', [0xED, 0x4B | rr << 4, 0x03, PTR >> 8])
+
+add('EX (SP),HL', [0x21, 0x34, 0x12, 0xE5, 0x21, 0x78, 0x56, 0xE3])
+add('EXX', [0xD9], a=1, b=2, c=3, d=4, e=5, h=6, l=7, alt_a=0x11, alt_b=0x12, alt_c=0x13, alt_d=0x14, alt_e=0x15, alt_h=0x16, alt_l=0x17)
+add("EX AF,AF'", [0x08], a=0x80, f=0xAB, alt_a=0x7F, alt_f=0x45)
+add('EXX twice', [0xD9, 0xD9], b=2, c=3, d=4, e=5, h=6, l=7, alt_b=0x12, alt_c=0x13)
+
+for nm, op in (('LDI', 0xA0), ('LDD', 0xA8)):
+    for n in (1, 2):
+        add(f'{nm} bc={n}', [0xED, op], b=0, c=n, d=PTR + 0x100 >> 8, e=0x08, h=PTR >> 8, l=0x08, f=random.randrange(256))
+for nm, op in (('CPI', 0xA1), ('CPD', 0xA9), ('CPIR', 0xB1), ('CPDR', 0xB9)):
+    for a in (0, 3, 5, 9, 0x80, 0xFF):
+        for n in (1, 2, 6, 20):
+            for cf in (0, 1):
+                add(f'{nm} a={a:02X} bc={n} c={cf}', [0xED, op], a=a, b=0, c=n, h=PTR >> 8, l=0x08, f=random.randrange(256) & ~1 | cf)
+
+for a in range(256):
+    for fl in range(8):
+        f = random.randrange(256) & ~0x13 | (fl & 1) | (fl >> 1 & 1) << 4 | (fl >> 2 & 1) << 1
+        add(f'DAA a={a:02X} f={f:02X}', [0x27], a=a, f=f)
+
+for portc in (0, 1, 2):
+    for r, nm in enumerate(('B', 'C', 'D', 'E', 'H', 'L', '(HL)', 'A')):
+        if r != 6:
+            add(f'OUT (C),{nm} port={portc}', [0xED, 0x41 | r << 3], a=5, b=6, c=portc, d=7, e=8, h=9, l=10)
+
+for pre, ix in ((0xDD, 'ix'), (0xFD, 'iy')):
+    nmx = ix.upper()
+    add(f'LD {nmx},nn', [pre, 0x21, 0x34, 0x12], f=7)
+    add(f'LD {nmx},(nn)', [pre, 0x2A, 0x04, PTR >> 8])
+    add(f'LD (nn),{nmx}', [pre, 0x22, 0x30, PTR >> 8], **{ix: 0xBEEF})
+    for v in (0, 0xFFFF, 0x7FFF):
+        add(f'INC {nmx} v={v:04X}', [pre, 0x23], f=0x55, **{ix: v})
+        add(f'DEC {nmx} v={v:04X}', [pre, 0x2B], f=0x55, **{ix: v})
+    for rr, rn in ((0, 'BC'), (1, 'DE'), (2, nmx), (3, 'SP')):
+        for xv in V16:
+            for v in V16:
+                init = {ix: xv, 'f': random.randrange(256)}
+                pair_init(rn, v, init)
+                if rn == nmx: v = xv
+                add(f'ADD {nmx},{rn} x={xv:04X} v={v:04X}', [pre, 0x09 | rr << 4], **init)
+    for d in (-128, -1, 0, 1, 127):
+        # these windows stay inside PTR..PTR+0x110 by pointing the register at the middle of it
+        mid = PTR + 0x80
+        for r, rn in ((0, 'B'), (1, 'C'), (2, 'D'), (3, 'E'), (4, 'H'), (5, 'L'), (7, 'A')):
+            add(f'LD {rn},({nmx}{d:+d})', [pre, 0x46 | r << 3, d & 0xFF], **{ix: mid})
+            add(f'LD ({nmx}{d:+d}),{rn}', [pre, 0x70 | r, d & 0xFF], a=0xA1, b=0xB2, c=0xC3, d=0xD4, e=0xE5, h=0x16, l=0x27, **{ix: mid})
+        add(f'LD ({nmx}{d:+d}),n', [pre, 0x36, d & 0xFF, 0x9C], **{ix: mid})
+        for v in (0, 0x7F, 0x80, 0xFF, 0x0F):
+            for nm2, opc in (('INC', 0x34), ('DEC', 0x35)):
+                add(f'{nm2} ({nmx}{d:+d}) v={v:02X}', [pre, opc, d & 0xFF], f=random.randrange(256), **{ix: mid}, mem_at=(mid + d, v))
+        for i, op in enumerate(ALU):
+            for a in (0, 1, 0x7F, 0x80, 0xFF):
+                for cf in (0, 1):
+                    add(f'{op} A,({nmx}{d:+d}) a={a:02X} c={cf}', [pre, 0x86 | i << 3, d & 0xFF], a=a, f=random.randrange(256) & ~1 | cf, **{ix: mid}, mem_at=(mid + d, 0x8F))
+        for k, nm2 in enumerate(SHIFTS):
+            for v in (0, 1, 0x80, 0xA5, 0xFF):
+                for cf in (0, 1):
+                    add(f'{nm2} ({nmx}{d:+d}) v={v:02X} c={cf}', [pre, 0xCB, d & 0xFF, k << 3 | 6], f=random.randrange(256) & ~1 | cf, **{ix: mid}, mem_at=(mid + d, v))
+        for bit in range(8):
+            for nm2, b0 in (('BIT', 0x40), ('RES', 0x80), ('SET', 0xC0)):
+                for v in (0, 0xFF, 0x55):
+                    add(f'{nm2} {bit},({nmx}{d:+d}) v={v:02X}', [pre, 0xCB, d & 0xFF, b0 | bit << 3 | 6], f=random.randrange(256), **{ix: mid}, mem_at=(mid + d, v))
+    add(f'PUSH {nmx} POP BC', [pre, 0xE5, 0xC1], **{ix: 0xCAFE})
+    add(f'PUSH BC POP {nmx}', [0xC5, pre, 0xE1], b=0x12, c=0x34)
+    add(f'JP ({nmx}) lands', [0x3E, 7, pre, 0xE9, 0, 0, 0x3C], **{ix: ORG + 6})
+    add(f'LD SP,{nmx}', [pre, 0xF9], **{ix: 0xE000})
+    add(f'EX (SP),{nmx}', [0x21, 0x34, 0x12, 0xE5, pre, 0xE3], **{ix: 0xABCD})
+
+
 def run_ref(case):
     m = z80.Z80Machine()
     m.set_memory_block(ORG, bytes(case['code'] + [0x76]))
     init = case['init']
     m.sp = init.get('sp', 0xF000)
     for k, v in init.items():
-        if k not in ('mem', 'sp'):
+        if k not in ('mem', 'sp', 'mem_at'):
             setattr(m, k, v)
     scratch = list(range(16))
     if 'mem' in init:
         scratch[0] = init['mem']
     m.set_memory_block(PTR, bytes(scratch))
     m.set_memory_block(PTR + 0x100, bytes(16))
+    if 'mem_at' in init:
+        m.set_memory_block(init['mem_at'][0], bytes([init['mem_at'][1]]))
     m.pc = ORG
     m.ticks_to_stop = 100000
     m.run()

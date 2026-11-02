@@ -21,6 +21,6 @@ To see how well the tests notice mistakes, temporarily introduce a deliberate bu
 - Programs run on the main thread. Runaway loops stop at the step limit within milliseconds and sizes are capped, so a Web Worker is not needed yet.
 - Each test case re-assembles the source.
 - Unsupported instructions are listed in `docs/assembler.md`. Undocumented flag bits 3 and 5 and interrupts are not modelled.
-- Nothing shows which challenges a learner has completed.
-- `load-a`, `print-char`, `count-up` and `countdown` have one test case because their result is fixed.
+- Completion ticks are per browser (local storage); there are no accounts or sync.
+- A few tasks have a single test case because their result is fixed (a program that always prints the same text, for example).
 - `npm audit` reports a moderate `minimatch` advisory inside ESLint (dev-only). The suggested fix is a downgrade to eslint 4, so it is left alone.

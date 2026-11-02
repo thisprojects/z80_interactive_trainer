@@ -1,5 +1,7 @@
 # Writing challenges
 
+Challenges are the second group in the trainer. The first group, **lessons** (see [`lessons.md`](lessons.md)), teaches; a challenge tests. It should combine ideas the lessons covered and be harder than a lesson task, but a learner who followed the course must be able to solve it.
+
 Challenges live in `src/data/challenges.js`; the field-by-field schema is documented (and enforced) in `src/data/challengeSchema.js`.
 
 ## The rule
@@ -18,14 +20,14 @@ The title must say "Spoiler" so learners know before opening it, and it must be 
 
 ## Adding one
 
-1. Append an object to the array in `src/data/challenges.js`.
-2. Add a working solution to `src/data/solutions.js` under the same `id`. It is used by the tests only and must never be imported by app code (a browser test fails if any solution reaches the production bundle).
-3. Run `npm test`. For every challenge it validates the schema, checks ids are unique, runs your solution against every test case, and checks the starter code does not already pass.
+1. Append an object to the array in `src/data/challenges.js`, with a `uses` list of the lesson ids it builds on.
+2. Add a working solution to `challengeSolutions` in `src/data/solutions.js` under the same `id`, without comments. It is used by the tests only and must never be imported by app code (a browser test fails if any of these solutions reaches the production bundle; the commented spoiler hint is a different text and does ship).
+3. Run `npm test`. For every challenge it validates the schema, checks ids are unique (across lessons and challenges), runs your solution against every test case, checks the starter code does not already pass, and checks that every instruction form your solution uses has been shown in the lessons listed in `uses` (or earlier ones). If that last check fails, either the challenge needs a lesson it does not list, or a lesson needs to show the instruction.
 4. Run `npm run e2e`. It types your solution into the real editor and checks the verdict.
 
 ## Choosing fields
 
-- `difficulty`: **beginner** is one idea in a few instructions; **intermediate** loops over memory or combines several ideas; **advanced** is a small complete program.
+- `difficulty`: **beginner** is a short task using one or two lessons; **intermediate** loops over memory or combines several ideas; **advanced** is a small complete program.
 - `category`: one of `basics`, `arithmetic`, `conditionals`, `loops`, `memory`, `subroutines`, `output`.
 - `starterCode` must start with `ORG 0x8000` (the schema enforces this) and fail the tests as written.
 - `tests`: use several cases, including edge cases (zero, 255, one element, equal values). A single case is acceptable only when the result is fixed. A test checks the registers, memory and console output you list in `expect`, so list everything that matters, including bytes next to a block that must not be touched.

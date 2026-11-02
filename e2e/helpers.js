@@ -12,8 +12,11 @@ export async function setCode(page, code) {
 
 export const run = (page) => page.getByRole('button', { name: 'Run' }).click()
 export const results = (page) => page.getByRole('region', { name: 'Results' })
-export const challengeMenu = (page) => page.getByRole('button', { name: /^Select challenge/ })
+export const menu = (page) => page.getByRole('button', { name: /^Select (lesson|challenge)/ })
+export const openChallenges = (page) => page.getByRole('tab', { name: 'Challenges' }).click()
+export const openLessons = (page) => page.getByRole('tab', { name: 'Learn' }).click()
+// Pick an item from the menu of whichever tab is showing.
 export async function choose(page, id) {
-  await challengeMenu(page).click()
+  await menu(page).click()
   await page.locator(`[role=option][data-value="${id}"]`).click()
 }

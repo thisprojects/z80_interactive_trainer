@@ -14,6 +14,7 @@ for (const c of cases) {
   mem.set([...c.code, 0x76], org)
   mem.set(Array.from({ length: 16 }, (_, i) => i), ptr)
   if ('mem' in c.init) mem[ptr] = c.init.mem
+  if ('mem_at' in c.init) mem[c.init.mem_at[0]] = c.init.mem_at[1]
   const cpu = new Z80Cpu({ memory: mem })
   cpu.sp = c.init.sp ?? 0xf000
   cpu.pc = org
@@ -21,10 +22,14 @@ for (const c of cases) {
   for (const [k, v] of Object.entries(c.init)) {
     if (k in names) cpu.r[names[k]] = v
     else if (k === 'f') cpu.f = v
+    else if (k === 'ix' || k === 'iy') cpu[k] = v
+    else if (k === 'alt_f') cpu.alt.f = v
+    else if (k.startsWith('alt_') && k.slice(4) in names) cpu.alt.r[names[k.slice(4)]] = v
   }
   let steps = 0
   while (!cpu.halted && steps++ < 1000) cpu.step()
-  const got = { a: cpu.a, f: cpu.f, b: cpu.r[0], c: cpu.r[1], d: cpu.r[2], e: cpu.r[3], h: cpu.r[4], l: cpu.r[5], sp: cpu.sp, pc: cpu.pc }
+  const got = { a: cpu.a, f: cpu.f, b: cpu.r[0], c: cpu.r[1], d: cpu.r[2], e: cpu.r[3], h: cpu.r[4], l: cpu.r[5], sp: cpu.sp, pc: cpu.pc, ix: cpu.ix, iy: cpu.iy,
+    alt_a: cpu.alt.r[7], alt_f: cpu.alt.f, alt_b: cpu.alt.r[0], alt_c: cpu.alt.r[1], alt_d: cpu.alt.r[2], alt_e: cpu.alt.r[3], alt_h: cpu.alt.r[4], alt_l: cpu.alt.r[5] }
   const bad = []
   for (const k of Object.keys(got)) {
     const mask = k === 'f' ? FLAG_MASK : 0xffff

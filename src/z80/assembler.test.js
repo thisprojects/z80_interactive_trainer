@@ -183,20 +183,20 @@ describe('directives and structure', () => {
     expect(assemble('ORG 0\nDS 65536').size).toBe(65536)
   })
   it('rejects unsupported instructions whether or not they are indented', () => {
-    for (const name of ['ldi', 'ldd', 'cpir', 'di', 'ei', 'reti', 'retn', 'daa', 'exx', 'rld']) {
+    for (const name of ['ini', 'otir', 'di', 'ei', 'reti', 'retn', 'rrd', 'rld']) {
       expect(() => assemble(`${name}\nHALT`)).toThrow(new RegExp(`${name.toUpperCase()} is not supported`, 'i'))
       expect(() => assemble(`  ${name}\nHALT`)).toThrow(/is not supported by this trainer/)
     }
     expect(() => assemble('  IM 1')).toThrow(/IM is not supported/)
-    expect(assemble('ldi: NOP').segments[0].bytes).toEqual([0]) // a label with a colon is still just a label
+    expect(assemble('ini: NOP').segments[0].bytes).toEqual([0]) // a label with a colon is still just a label
   })
   it('still allows a label that shares its name with an unsupported instruction', () => {
     expect(assemble('ind EQU 5\n LD A,ind').segments[0].bytes).toEqual([0x3e, 5])
-    expect(assemble('ldi DB 7\n HALT').segments[0].bytes).toEqual([7, 0x76])
+    expect(assemble('outd DB 7\n HALT').segments[0].bytes).toEqual([7, 0x76])
     expect(assemble('ini NOP\n HALT').segments[0].bytes).toEqual([0, 0x76])
-    expect(assemble('cpi DS 2\n HALT').size).toBe(3)
+    expect(assemble('otir DS 2\n HALT').size).toBe(3)
     expect(() => assemble('ind')).toThrow(/IND is not supported/)
-    expect(() => assemble('ldi 5')).toThrow(/LDI is not supported/)
+    expect(() => assemble('ini 5')).toThrow(/INI is not supported/)
   })
   it('is case-insensitive', () => {
     expect(bytes('ld A,b')).toEqual([0x78])
@@ -241,7 +241,19 @@ describe('errors', () => {
     ['RST 5', /RST target/],
     ['OUT (0),B', /Invalid operands/],
     ['IN B,(0)', /Invalid operands/],
-    ['EX AF,AF\'', /Only EX DE,HL/],
+    ['EX AF,BC', /Supported forms/],
+    ['PUSH AF\'', /Invalid operands/],
+    ['LD A,(IX+200)', /Index offset 200/],
+    ['LD (IX+1),(HL)', /Invalid operands/],
+    ['LD H,(IX+1)\nLD (HL),(IX+1)', /Invalid operands/],
+    ['ADD IX,HL', /Invalid operands/],
+    ['ADD IX,IY', /Invalid operands/],
+    ['ADC HL,5', /Invalid operands/],
+    ['JP (IX+1)', /Invalid operands/],
+    ['OUT (C),(HL)', /Invalid operands/],
+    ['LD IX,B', /Invalid operands/],
+    ['LD (5),IX\nLD B,IX', /Invalid operands/],
+    ['INC (IX+1),A', /needs 1 operand/],
     ['top: NOP\n DS 200\n JR top', /out of range/],
     ['JR nowhere', /Unknown symbol/],
     ['DS nowhere', /Unknown symbol/],
@@ -249,5 +261,90 @@ describe('errors', () => {
     const e = err(src)
     expect(e).toBeInstanceOf(AsmError)
     expect(e.message).toMatch(pattern)
+  })
+})
+
+// Every form below was checked byte-for-byte against pasmo (npm run check:assembler assembles
+// tools/samples/extended.asm the same way).
+describe('extended instruction encodings', () => {
+  it.each([
+    ['ADC HL,BC', [0xed, 0x4a]],
+    ['ADC HL,DE', [0xed, 0x5a]],
+    ['ADC HL,HL', [0xed, 0x6a]],
+    ['ADC HL,SP', [0xed, 0x7a]],
+    ['SBC HL,BC', [0xed, 0x42]],
+    ['SBC HL,SP', [0xed, 0x72]],
+    ['LD (0x9000),BC', [0xed, 0x43, 0x00, 0x90]],
+    ['LD (0x9000),DE', [0xed, 0x53, 0x00, 0x90]],
+    ['LD (0x9000),SP', [0xed, 0x73, 0x00, 0x90]],
+    ['LD BC,(0x9000)', [0xed, 0x4b, 0x00, 0x90]],
+    ['LD DE,(0x9000)', [0xed, 0x5b, 0x00, 0x90]],
+    ['LD SP,(0x9000)', [0xed, 0x7b, 0x00, 0x90]],
+    ['EX (SP),HL', [0xe3]],
+    ["EX AF,AF'", [0x08]],
+    ['EXX', [0xd9]],
+    ['LDI', [0xed, 0xa0]],
+    ['LDD', [0xed, 0xa8]],
+    ['CPI', [0xed, 0xa1]],
+    ['CPD', [0xed, 0xa9]],
+    ['CPIR', [0xed, 0xb1]],
+    ['CPDR', [0xed, 0xb9]],
+    ['DAA', [0x27]],
+    ['OUT (C),A', [0xed, 0x79]],
+    ['OUT (C),B', [0xed, 0x41]],
+    ['LD IX,0x1234', [0xdd, 0x21, 0x34, 0x12]],
+    ['LD IY,0x1234', [0xfd, 0x21, 0x34, 0x12]],
+    ['LD IX,(0x9000)', [0xdd, 0x2a, 0x00, 0x90]],
+    ['LD (0x9000),IY', [0xfd, 0x22, 0x00, 0x90]],
+    ['INC IX', [0xdd, 0x23]],
+    ['DEC IY', [0xfd, 0x2b]],
+    ['ADD IX,BC', [0xdd, 0x09]],
+    ['ADD IX,DE', [0xdd, 0x19]],
+    ['ADD IX,IX', [0xdd, 0x29]],
+    ['ADD IX,SP', [0xdd, 0x39]],
+    ['ADD IY,IY', [0xfd, 0x29]],
+    ['PUSH IX', [0xdd, 0xe5]],
+    ['POP IY', [0xfd, 0xe1]],
+    ['JP (IX)', [0xdd, 0xe9]],
+    ['JP (IY)', [0xfd, 0xe9]],
+    ['LD SP,IX', [0xdd, 0xf9]],
+    ['EX (SP),IX', [0xdd, 0xe3]],
+    ['EX (SP),IY', [0xfd, 0xe3]],
+    ['LD A,(IX+5)', [0xdd, 0x7e, 0x05]],
+    ['LD B,(IY-3)', [0xfd, 0x46, 0xfd]],
+    ['LD H,(IX)', [0xdd, 0x66, 0x00]],
+    ['LD (IX+1),C', [0xdd, 0x71, 0x01]],
+    ['LD (IY+127),A', [0xfd, 0x77, 0x7f]],
+    ['LD (IX-128),E', [0xdd, 0x73, 0x80]],
+    ['LD (IX+2),0x55', [0xdd, 0x36, 0x02, 0x55]],
+    ['INC (IX+4)', [0xdd, 0x34, 0x04]],
+    ['DEC (IY-4)', [0xfd, 0x35, 0xfc]],
+    ['ADD A,(IX+1)', [0xdd, 0x86, 0x01]],
+    ['ADC A,(IX+2)', [0xdd, 0x8e, 0x02]],
+    ['SUB (IX+3)', [0xdd, 0x96, 0x03]],
+    ['SBC A,(IY+3)', [0xfd, 0x9e, 0x03]],
+    ['AND (IX+4)', [0xdd, 0xa6, 0x04]],
+    ['XOR (IX+5)', [0xdd, 0xae, 0x05]],
+    ['OR (IY+6)', [0xfd, 0xb6, 0x06]],
+    ['CP (IX+7)', [0xdd, 0xbe, 0x07]],
+    ['RLC (IX+1)', [0xdd, 0xcb, 0x01, 0x06]],
+    ['SRL (IY-2)', [0xfd, 0xcb, 0xfe, 0x3e]],
+    ['BIT 3,(IX+5)', [0xdd, 0xcb, 0x05, 0x5e]],
+    ['RES 0,(IY+1)', [0xfd, 0xcb, 0x01, 0x86]],
+    ['SET 7,(IX-1)', [0xdd, 0xcb, 0xff, 0xfe]],
+  ])('%s', (src, expected) => {
+    expect(bytes(src)).toEqual(expected)
+  })
+  it('treats AF\' as a register name, not the start of a character, even with a comment after it', () => {
+    expect(bytes("EX AF,AF'  ; swap 'em")).toEqual([0x08])
+    expect(bytes("ex af,af'")).toEqual([0x08])
+  })
+  it('resolves index offsets that use labels and expressions', () => {
+    expect(bytes('OFF EQU 3\nLD A,(IX+OFF*2)')).toEqual([0xdd, 0x7e, 6])
+    expect(bytes('LD A,(IX + 1)')).toEqual([0xdd, 0x7e, 1])
+    expect(bytes('LD A,(IX+later)\nlater EQU 4')).toEqual([0xdd, 0x7e, 4])
+  })
+  it('does not allow ix or iy as labels', () => {
+    expect(err('ix: NOP')).toBeInstanceOf(AsmError)
   })
 })

@@ -57,10 +57,10 @@ describe('runChallenge', () => {
     expect(r.error).toMatch(/Unknown instruction/)
   })
   it('reports runtime errors per test', () => {
-    const r = runChallenge(challenge([{ name: 'x', expect: { output: '' } }]), '  DB 0x27')
+    const r = runChallenge(challenge([{ name: 'x', expect: { output: '' } }]), '  DB 0xdd, 0x00')
     expect(r.ok).toBe(true)
     expect(r.results[0]).toMatchObject({ passed: false })
-    expect(r.results[0].error).toMatch(/DAA/)
+    expect(r.results[0].error).toMatch(/Unsupported opcode DD/)
   })
   it('detects programs that never halt', () => {
     const r = runChallenge(challenge([{ name: 'x', expect: { output: '' } }]), 'x: JR x')

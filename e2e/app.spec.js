@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test'
 import challenges from '../src/data/challenges.js'
-import solutions from '../src/data/solutions.js'
-import { setCode, run, results, choose, editor, challengeMenu } from './helpers.js'
+import lessons from '../src/data/lessons.js'
+import solutions, { challengeSolutions } from '../src/data/solutions.js'
+import { setCode, run, results, choose, editor, menu, openChallenges, openLessons } from './helpers.js'
 
+// Most tests below exercise the challenges, so start on that tab. The lessons have their own section.
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
+  await openChallenges(page)
 })
 
 test.describe('layout', () => {
@@ -40,7 +43,7 @@ test.describe('challenge menu', () => {
   for (const [width, height] of [[1280, 720], [390, 740], [320, 568]]) {
     test(`opens below its button, inside the page, at ${width}x${height}`, async ({ page }) => {
       await page.setViewportSize({ width, height })
-      const button = challengeMenu(page)
+      const button = menu(page)
       await button.click()
       const list = page.getByRole('listbox')
       await expect(list).toBeVisible()
@@ -54,9 +57,73 @@ test.describe('challenge menu', () => {
   }
 })
 
+test.describe('lessons', () => {
+  test.beforeEach(async ({ page }) => {
+    await openLessons(page)
+  })
+
+  test('opens on the first lesson and walks through them with Next and Previous', async ({ page }) => {
+    await expect(page.getByRole('heading', { level: 2, name: lessons[0].title })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Previous/ })).toBeDisabled()
+    await page.getByRole('button', { name: /Next/ }).click()
+    await expect(page.getByRole('heading', { level: 2, name: lessons[1].title })).toBeVisible()
+    await expect(editor(page)).toContainText('B already contains a value')
+    await page.getByRole('button', { name: /Previous/ }).click()
+    await expect(page.getByRole('heading', { level: 2, name: lessons[0].title })).toBeVisible()
+  })
+
+  test('lists every lesson under its module heading', async ({ page }) => {
+    await menu(page).click()
+    await expect(page.getByRole('option')).toHaveCount(lessons.length)
+    for (const module of new Set(lessons.map((l) => l.module))) await expect(page.getByText(module, { exact: true }).first()).toBeVisible()
+  })
+
+  test('ticks a lesson when its task passes, and keeps the tick after a reload', async ({ page }) => {
+    await setCode(page, solutions[lessons[0].id])
+    await run(page)
+    await expect(results(page)).toContainText('All tests passed')
+    await expect(page.getByText('✓ Done')).toBeVisible()
+    await page.reload()
+    await expect(page.getByText('✓ Done')).toBeVisible()
+  })
+
+  test('the last lesson leads to the challenges', async ({ page }) => {
+    await choose(page, lessons.at(-1).id)
+    await page.getByRole('button', { name: 'Go to Challenges →' }).click()
+    await expect(page.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('heading', { level: 2, name: challenges[0].title })).toBeVisible()
+  })
+
+  test('remembers the tab and the place in each tab after a reload', async ({ page }) => {
+    await page.getByRole('button', { name: /Next/ }).click()
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 2, name: lessons[1].title })).toBeVisible()
+  })
+
+  test('keeps the hint hidden and shows the solution only when the spoiler is opened', async ({ page }) => {
+    const spoiler = lessons[0].hints.at(-1)
+    await expect(page.locator('aside pre', { hasText: spoiler.code.split('\n')[1].trim() })).toHaveCount(0)
+    await page.getByRole('button', { name: spoiler.title }).click()
+    await expect(page.locator('aside pre', { hasText: spoiler.code.split('\n')[1].trim() })).toBeVisible()
+  })
+
+  for (const [width, height] of [[1280, 720], [390, 740], [320, 568]]) {
+    test(`fits a ${width}x${height} screen with no sideways scrolling and the menu below its button`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+      await menu(page).click()
+      const b = await menu(page).boundingBox()
+      const l = await page.getByRole('listbox').boundingBox()
+      expect(l.y).toBeGreaterThanOrEqual(b.y + b.height - 1)
+      expect(l.x + l.width).toBeLessThanOrEqual(width)
+      expect(l.y + l.height).toBeLessThanOrEqual(height)
+    })
+  }
+})
+
 test.describe('instructions', () => {
   test('lists every challenge and switches between them', async ({ page }) => {
-    await challengeMenu(page).click()
+    await menu(page).click()
     await expect(page.getByRole('option')).toHaveCount(challenges.length)
     await page.keyboard.press('Escape')
     await choose(page, challenges[3].id)
@@ -79,7 +146,7 @@ test.describe('instructions', () => {
     expect(bundle).toContain('Hello, Z80!') // control: we really did download the app code
     // The annotated code inside each "Spoiler" hint is shipped on purpose (hidden until opened);
     // what must stay out is solutions.js itself, which tests import and app code must not.
-    for (const [id, src] of Object.entries(solutions)) {
+    for (const [id, src] of Object.entries(challengeSolutions)) {
       expect(bundle, `solution ${id}`).not.toContain(src)
       expect(bundle, `solution ${id} (escaped)`).not.toContain(JSON.stringify(src).slice(1, -1))
     }
@@ -100,12 +167,17 @@ test.describe('instructions', () => {
   })
 })
 
+// These use the first lesson (a registers exercise: A = 42 and D = 9), whose results are easy to read.
 test.describe('running code', () => {
+  test.beforeEach(async ({ page }) => {
+    await openLessons(page)
+  })
+
   test('fails the starter code, then passes once the program is correct', async ({ page }) => {
     await expect(results(page)).toContainText('Press Run')
     await run(page)
     await expect(results(page)).toContainText('Some tests failed.')
-    await setCode(page, solutions['load-a'])
+    await setCode(page, solutions[lessons[0].id])
     await run(page)
     await expect(results(page)).toContainText('All tests passed')
   })
@@ -139,7 +211,7 @@ test.describe('running code', () => {
     await expect(results(page)).toContainText('Press Run')
   })
 
-  test('requires a real subroutine for the subroutine challenge', async ({ page }) => {
+  test('requires a real subroutine for the subroutine lesson', async ({ page }) => {
     await choose(page, 'subroutine')
     await setCode(page, '        ORG 0x8000\n        ADD A,A\n        ADD A,A\n        ADD A,A\n        HALT\n')
     await run(page)
@@ -152,7 +224,8 @@ test.describe('running code', () => {
 
 test.describe('keyboard and accessibility', () => {
   test('Ctrl/Cmd+Enter runs the program without adding a line to the editor', async ({ page }) => {
-    await setCode(page, solutions['load-a'])
+    await openLessons(page)
+    await setCode(page, solutions[lessons[0].id])
     const before = await page.locator('.cm-line').count()
     await page.keyboard.press('ControlOrMeta+Enter')
     await expect(results(page)).toContainText('All tests passed')
@@ -175,6 +248,7 @@ test.describe('keyboard and accessibility', () => {
     page.on('requestfailed', (r) => problems.push(`failed: ${r.url()}`))
     page.on('response', (r) => r.status() >= 400 && problems.push(`HTTP ${r.status()}: ${r.url()}`))
     await page.goto('/')
+    await openChallenges(page)
     await choose(page, 'fizzbuzz')
     await run(page)
     await expect(results(page)).toContainText('Some tests failed.')
@@ -213,11 +287,15 @@ test.describe('keyboard and accessibility', () => {
 })
 
 test.describe('saving', () => {
-  test('remembers code and the selected challenge after a reload', async ({ page }) => {
-    await choose(page, 'add-two')
+  test.beforeEach(async ({ page }) => {
+    await openLessons(page)
+  })
+
+  test('remembers code and the selected lesson after a reload', async ({ page }) => {
+    await choose(page, 'adding')
     await setCode(page, '        ORG 0x8000\n        ADD A,B ; my work\n        HALT\n')
     await page.reload()
-    await expect(challengeMenu(page)).toContainText('Add Them Up')
+    await expect(menu(page)).toContainText('Adding numbers')
     await expect(editor(page)).toContainText('my work')
   })
 
@@ -245,6 +323,20 @@ test.describe('saving', () => {
 })
 
 // The strongest check: type every reference solution into the real editor and press Run.
+test.describe('every lesson can be solved in the browser', () => {
+  for (const l of lessons) {
+    test(`${l.id}`, async ({ page }) => {
+      await openLessons(page)
+      await choose(page, l.id)
+      await run(page)
+      await expect(results(page)).toContainText('Some tests failed.') // the starter code must not pass
+      await setCode(page, solutions[l.id])
+      await run(page)
+      await expect(results(page)).toContainText('All tests passed')
+    })
+  }
+})
+
 test.describe('every challenge can be solved in the browser', () => {
   for (const c of challenges) {
     test(`${c.id}`, async ({ page }) => {
@@ -265,7 +357,7 @@ test.describe('cheat sheet', () => {
     await expect(page.getByRole('article', { name: 'If / else' })).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    await page.getByRole('button', { name: 'Back to challenges' }).click()
+    await page.getByRole('button', { name: 'Back' }).click()
     await expect(editor(page)).toBeVisible()
   })
 })

@@ -61,6 +61,9 @@ export class Machine {
       else if (key === 'DE') cpu.de = value
       else if (key === 'HL') cpu.hl = value
       else if (key === 'SP') cpu.sp = value
+      else if (key === 'F') cpu.f = value & 0xff
+      else if (key === 'IX') cpu.ix = value & 0xffff
+      else if (key === 'IY') cpu.iy = value & 0xffff
       else if (REG_NAMES.includes(key)) cpu.r[REG_NAMES.indexOf(key)] = value & 0xff
       else throw new Error(`Unknown register "${name}"`)
     }
@@ -70,7 +73,7 @@ export class Machine {
     const cpu = this.cpu
     const out = {}
     REG_NAMES.forEach((n, i) => { if (n) out[n] = cpu.r[i] })
-    return { ...out, BC: cpu.bc, DE: cpu.de, HL: cpu.hl, SP: cpu.sp, F: cpu.f, PC: cpu.pc }
+    return { ...out, BC: cpu.bc, DE: cpu.de, HL: cpu.hl, IX: cpu.ix, IY: cpu.iy, SP: cpu.sp, F: cpu.f, PC: cpu.pc }
   }
 
   // Runs until HALT or the step limit. Returns { halted, steps, timedOut }.
