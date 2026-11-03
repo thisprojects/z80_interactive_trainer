@@ -36,7 +36,7 @@ describe('runChallenge requires.call', () => {
 })
 
 describe('runChallenge', () => {
-  const src = 'LD A,5\nOUT (1),A\nLD (0x9000),A\nHALT'
+  const src = 'LD A,5\nLD C,A\nLD B,0\nCALL 0x2D2B\nCALL 0x2DE3\nLD (0x9000),A\nHALT'
   it('passes when everything matches', () => {
     const r = runChallenge(challenge([{ name: 'ok', expect: { output: '5', registers: { A: 5 }, memory: { 0x9000: [5] } } }]), src)
     expect(r).toMatchObject({ ok: true, passed: true })

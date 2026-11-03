@@ -3,8 +3,8 @@
 // solutions.js (tests only, keyed by challenge id); the unit tests run it, so a
 // new challenge is proven solvable.
 //
-// Output ports: OUT (0),A prints a character, OUT (1),A prints A as a decimal
-// number and OUT (2),A prints a newline.
+// Output uses two real ZX Spectrum ROM routines: RST 0x10 prints the character in A (13 = newline) and
+// CALL 0x2D2B then CALL 0x2DE3 print BC as a decimal number.
 
 const bytesOf = (s) => [...s].map((ch) => ch.charCodeAt(0))
 const lines = (items) => items.join('\n')
@@ -21,8 +21,8 @@ const challenges = [
     description: 'Count backwards and finish with a message.',
     task: ['Print the numbers 10 down to 1, one per line.', 'Then print the word Liftoff! on its own line.'],
     explanation: 'Counting down is just as common as counting up, and loops often finish when a counter reaches zero.',
-    starterCode: '        ORG 0x8000\n\n        ; port 0 = character, 1 = number, 2 = newline\n\n        HALT\n',
-    uses: ['djnz', 'strings', 'print-number', 'newlines'],
+    starterCode: '        ORG 0x8000\n        LD A,2\n        CALL 0x1601     ; open the main screen channel\n\n        ; RST 0x10 prints the character in A (13 = newline)\n        ; number: LD BC,n / CALL 0x2D2B / CALL 0x2DE3\n\n        HALT\n',
+    uses: ['djnz', 'strings', 'print-number', 'newlines', 'stack'],
     hints: [
       { title: 'Hint 1', body: 'DJNZ decrements B and jumps if the result is not zero.' },
       { title: 'Hint 2', body: 'DJNZ ends the loop when B reaches 0, so think about how your printed value relates to B.' },
@@ -34,14 +34,20 @@ const challenges = [
         code: `        ORG 0x8000
         LD B,10
 loop:   LD A,B
-        OUT (1),A       ; print the number
-        OUT (2),A       ; print a newline
+        PUSH BC
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
+        POP BC     ; print the number
+        LD A,13
+        RST 0x10        ; print a newline
         DJNZ loop       ; B = B - 1, repeat while B != 0
         LD HL,msg
 next:   LD A,(HL)
         OR A            ; reached the 0 terminator?
         JR Z,done
-        OUT (0),A
+        RST 0x10
         INC HL
         JR next
 done:   HALT
@@ -237,7 +243,7 @@ done:   HALT
       'Otherwise print the number itself.',
     ],
     explanation: 'FizzBuzz combines loops, conditionals and output. The Z80 has no divide instruction, which makes spotting multiples an interesting puzzle.',
-    starterCode: '        ORG 0x8000\n\n        ; H = N\n        ; port 0 = character, 1 = number, 2 = newline\n\n        HALT\n',
+    starterCode: '        ORG 0x8000\n        LD A,2\n        CALL 0x1601     ; open the main screen channel\n\n        ; H = N\n        ; RST 0x10 prints the character in A (13 = newline)\n        ; number: LD BC,n / CALL 0x2D2B / CALL 0x2DE3\n\n        HALT\n',
     uses: ['djnz', 'if-equal', 'subroutine', 'strings', 'newlines', 'preserving'],
     hints: [
       { title: 'Hint 1', body: 'You do not need to divide. A counter that counts down from 3 and resets can tell you when a multiple of 3 has arrived.' },
@@ -272,8 +278,14 @@ not5:   LD A,E
         OR A            ; was a word printed?
         JR NZ,eol
         LD A,B
-        OUT (1),A       ; no: print the number
-eol:    OUT (2),A       ; newline
+        PUSH BC
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
+        POP BC     ; no: print the number
+eol:    LD A,13
+        RST 0x10        ; newline
         LD A,(limit)
         CP B            ; finished?
         JR Z,finish
@@ -284,7 +296,7 @@ finish: HALT
 puts:   LD A,(HL)       ; print a 0-terminated string at HL
         OR A
         RET Z
-        OUT (0),A
+        RST 0x10
         INC HL
         JR puts
 fizz:   DB "Fizz",0
@@ -814,8 +826,8 @@ ok:     DJNZ inner
     description: 'Each number in the Fibonacci sequence is the sum of the two before it.',
     task: ['Print the first ten Fibonacci numbers, starting 1 1 2 3 5 and so on.', 'Separate them with single spaces, all on one line.'],
     explanation: 'The sequence goes 1, 1, 2, 3, 5, 8 ...',
-    starterCode: '        ORG 0x8000\n\n        ; port 0 = character, 1 = number\n\n        HALT\n',
-    uses: ['djnz', 'accumulate', 'print-number', 'print-char'],
+    starterCode: '        ORG 0x8000\n        LD A,2\n        CALL 0x1601     ; open the main screen channel\n\n        ; RST 0x10 prints the character in A (13 = newline)\n        ; number: LD BC,n / CALL 0x2D2B / CALL 0x2DE3\n\n        HALT\n',
+    uses: ['djnz', 'accumulate', 'print-number', 'print-char', 'stack'],
     hints: [
       { title: 'Hint 1', body: 'Keep the previous number in one register and the current one in another.' },
       { title: 'Hint 2', body: 'To step along: the new number is current + previous, the new previous is the old current.' },
@@ -829,9 +841,14 @@ ok:     DJNZ inner
         LD D,0          ; previous
         LD E,1          ; current
 loop:   LD A,E
-        OUT (1),A       ; print the current number
+        PUSH BC
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
+        POP BC     ; print the current number
         LD A,' '
-        OUT (0),A
+        RST 0x10
         LD A,E
         ADD A,D         ; next = current + previous
         LD D,E          ; previous = current

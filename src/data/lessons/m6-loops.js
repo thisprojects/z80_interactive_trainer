@@ -1,4 +1,4 @@
-import { startWith, hints } from './helpers.js'
+import { startWith, startWithScreen, hints } from './helpers.js'
 
 export default [
   {
@@ -8,13 +8,15 @@ export default [
     intro: 'Jump backwards to repeat code. A counter and a compare decide when to stop.',
     content: [
       { type: 'text', text: 'A loop is a conditional jump that goes backwards. Keep a counter in a register, do the work, change the counter, then compare it and jump back to the label if you are not finished.' },
-      { type: 'compare', high: 'for i in range(5):\n    show("*")', z80: "        LD B,0\nloop:   LD A,'*'\n        OUT (0),A\n        INC B\n        LD A,B\n        CP 5\n        JR NZ,loop" },
+      { type: 'compare', high: 'for i in range(5):\n    show("*")', z80: "        LD B,0\nloop:   LD A,'*'\n        RST 0x10\n        INC B\n        LD A,B\n        CP 5\n        JR NZ,loop" },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,0          ; counter
 loop:   LD A,'*'
-        OUT (0),A       ; the body: print a star
+        RST 0x10        ; the body: print a star
         INC B
         LD A,B
         CP 5            ; done five?
@@ -25,17 +27,23 @@ loop:   LD A,'*'
       { type: 'tip', text: 'Check your loop at both ends. This one runs the body for counter values 0 to 4, exactly 5 times. Starting at 1 or comparing with a different number would give a different count.' },
     ],
     task: ['Print the numbers 1 to 10, one per line.'],
-    starterCode: startWith('port 1 = print a number, port 2 = newline'),
+    starterCode: startWithScreen('print a number: LD C,A / LD B,0 / CALL 0x2D2B / CALL 0x2DE3', 'newline: LD A,13 / RST 0x10', 'printing a number destroys BC, so keep the counter in D'),
     hints: hints(
-      ['Start a counter at 1. Print it, then print a newline, add 1, and decide whether to go round again.', 'You must stop after printing 10, so the loop must end when the counter reaches 11.'],
+      ['Start a counter at 1. Print it, then print a newline, add 1, and decide whether to go round again.', 'You must stop after printing 10, so the loop must end when the counter reaches 11.', 'Printing a number with the ROM routine destroys BC, so keep your counter in another register such as D.'],
       'A counter from 1 to 10 with a compare against 11.',
       `        ORG 0x8000
-        LD B,1          ; counter
-loop:   LD A,B
-        OUT (1),A       ; print the number
-        OUT (2),A       ; then a newline
-        INC B
-        LD A,B
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD D,1          ; counter (not B or C: printing a number uses BC)
+loop:   LD A,D
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; print the number
+        LD A,13
+        RST 0x10        ; then a newline
+        INC D
+        LD A,D
         CP 11           ; passed 10?
         JR NZ,loop
         HALT`,
@@ -52,32 +60,40 @@ loop:   LD A,B
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,5          ; repeat five times
 loop:   LD A,'*'
-        OUT (0),A       ; the body
+        RST 0x10        ; the body
         DJNZ loop       ; B = B - 1, repeat while B is not 0
         HALT`,
         caption: 'The same output as the previous loop, with no compare and no INC.',
         prints: '*****',
       },
       { type: 'text', text: '`DJNZ` is a relative jump, so the label must be close by.' },
+      { type: 'text', text: 'To print a single digit, add the character code of `\'0\'` (48) to it: `ADD A,\'0\'` turns 3 into the character `\'3\'`, which `RST 0x10` can print. This works for 0 to 9, and it leaves B alone.' },
       { type: 'tip', text: 'Beware B = 0 on entry. `DJNZ` subtracts first, so 0 becomes 255 and the loop runs 256 times. Make sure B is at least 1, or check for 0 first.' },
     ],
-    task: ['Print twelve # characters on the first line.', 'Then print the numbers 3, 2, 1, one per line, using the counter B itself as the number to print.'],
-    starterCode: startWith('port 0 = character, 1 = number, 2 = newline'),
+    task: ['Print twelve # characters on the first line.', 'Then print the digits 3, 2, 1, one per line, using the counter B itself as the digit to print.'],
+    starterCode: startWithScreen('RST 0x10 prints the character in A', 'newline: LD A,13 / RST 0x10', 'digit: ADD A,\'0\' turns 0 to 9 into a character'),
     hints: hints(
-      ['Two loops, one after the other. Each loads B with its own count.', 'In the second loop B takes the values 3, 2, 1, which is what you want to print. Copy it into A inside the loop.'],
+      ['Two loops, one after the other. Each loads B with its own count.', 'In the second loop B takes the values 3, 2, 1, which is what you want to print. Copy it into A, add \'0\' to make it a character, and print it.'],
       'One DJNZ loop for the hashes and one for the countdown.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,12
 hash:   LD A,'#'
-        OUT (0),A
+        RST 0x10
         DJNZ hash
-        OUT (2),A       ; new line
+        LD A,13
+        RST 0x10        ; new line
         LD B,3
 count:  LD A,B
-        OUT (1),A       ; 3, 2, 1
-        OUT (2),A
+        ADD A,'0'       ; digit to character
+        RST 0x10        ; 3, 2, 1
+        LD A,13
+        RST 0x10
         DJNZ count
         HALT`,
     ),
@@ -95,6 +111,8 @@ count:  LD A,B
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,20
         LD B,0          ; B counts the halvings
 while:  OR A            ; is A zero?
@@ -103,7 +121,10 @@ while:  OR A            ; is A zero?
         INC B
         JR while        ; test again
 done:   LD A,B
-        OUT (1),A       ; prints 5
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 5
         HALT`,
         prints: '5',
       },
@@ -140,11 +161,16 @@ done:   HALT`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,1
         LD B,3          ; the exponent
 loop:   ADD A,A         ; double
         DJNZ loop       ; ...B times
-        OUT (1),A       ; 2 to the power 3 = 8
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; 2 to the power 3 = 8
         HALT`,
         prints: '8',
       },
@@ -180,12 +206,15 @@ loop:   LD C,A          ; remember the old value
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD C,2          ; 2 rows
 row:    LD B,3          ; 3 stars in each row
 col:    LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ col        ; inner loop
-        OUT (2),A       ; end of the row
+        LD A,13
+        RST 0x10        ; end of the row
         DEC C
         JR NZ,row       ; outer loop
         HALT`,
@@ -194,17 +223,20 @@ col:    LD A,'*'
       { type: 'tip', text: 'Reset the inner counter at the top of the outer loop (`LD B,3` is inside `row`), because DJNZ leaves it at 0 after each row.' },
     ],
     task: ['Print a triangle of stars with four rows.', 'The first row has one star, the second two, and so on up to four.'],
-    starterCode: startWith('port 0 = character, 2 = newline'),
+    starterCode: startWithScreen('RST 0x10 prints the character in A', 'newline: LD A,13 / RST 0x10'),
     hints: hints(
       ['The number of stars in a row is the number of that row, so the inner count changes every time.', 'Keep the row number in C, and copy it into B at the start of each row.'],
       'The outer loop counts rows 1 to 4; B takes the row number.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD C,1          ; row number
 row:    LD B,C          ; stars in this row = row number
 col:    LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ col
-        OUT (2),A       ; new line
+        LD A,13
+        RST 0x10        ; new line
         INC C
         LD A,C
         CP 5            ; after row 4?

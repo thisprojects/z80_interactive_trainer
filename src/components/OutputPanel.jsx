@@ -1,10 +1,18 @@
-function TestResult({ r }) {
+import Screen from './Screen.jsx'
+
+function TestResult({ r, showScreen }) {
   return (
     <li className="rounded border border-slate-700 p-2">
       <div className={r.passed ? 'text-emerald-400' : 'text-red-400'}>
         {r.passed ? '✓' : '✗'} {r.name}
       </div>
       {r.error && <div className="mt-1 text-red-300">{r.error}</div>}
+      {r.output && (
+        <details className="mt-1" open={showScreen}>
+          <summary className="cursor-pointer text-xs text-slate-400">Screen</summary>
+          <Screen output={r.output} />
+        </details>
+      )}
       {r.failures.map((f) => (
         <div key={f.what} className="mt-1 text-xs text-slate-300">
           <div>{f.what}</div>
@@ -31,8 +39,8 @@ export default function OutputPanel({ result }) {
             {result.passed ? 'All tests passed. Well done!' : 'Some tests failed.'}
           </p>
           <ul className="space-y-2">
-            {result.results.map((r) => (
-              <TestResult key={r.name} r={r} />
+            {result.results.map((r, i) => (
+              <TestResult key={r.name} r={r} showScreen={i === 0} />
             ))}
           </ul>
         </>

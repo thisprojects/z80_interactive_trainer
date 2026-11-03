@@ -46,11 +46,13 @@ after:  LD B,2
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,5
         CP 5            ; is A equal to 5?
         JR NZ,skip      ; no: jump over the body
         LD A,'='
-        OUT (0),A       ; the body: prints =
+        RST 0x10        ; the body: prints =
 skip:   HALT`,
         prints: '=',
       },
@@ -92,13 +94,15 @@ done:   HALT`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,20
         CP 50           ; compare with 50
         JR C,small      ; carry set: A < 50
         LD A,'B'        ; else: big
         JR show
 small:  LD A,'S'        ; then: small
-show:   OUT (0),A       ; prints S
+show:   RST 0x10        ; prints S
         HALT`,
         prints: 'S',
       },
@@ -134,11 +138,13 @@ done:   HALT`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,-5
         BIT 7,A         ; is the top bit set?
         JR Z,done       ; zero flag set: bit 7 is 0, so skip
         LD A,'-'
-        OUT (0),A       ; prints -
+        RST 0x10        ; prints -
 done:   HALT`,
         prints: '-',
       },
@@ -173,13 +179,15 @@ done:   HALT`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,5
         CP 3
         JR Z,yes        ; 3 is good enough
         CP 5
         JR NZ,no        ; neither 3 nor 5
 yes:    LD A,'Y'
-        OUT (0),A       ; prints Y
+        RST 0x10        ; prints Y
 no:     HALT`,
         prints: 'Y',
       },

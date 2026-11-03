@@ -1,4 +1,4 @@
-import { startWith, hints } from './helpers.js'
+import { startWith, startWithScreen, hints } from './helpers.js'
 
 export default [
   {
@@ -13,13 +13,15 @@ export default [
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,0
         CALL check_not_zero
         JR C,failed     ; carry set means error
         LD A,'k'
         JR show
 failed: LD A,'E'
-show:   OUT (0),A       ; prints E
+show:   RST 0x10        ; prints E
         HALT
 
 ; check_not_zero: carry set if A is zero
@@ -36,11 +38,18 @@ check_not_zero:
     starterCode: `        ORG 0x8000
         ; A and B hold the dividend and the divisor
         CALL divide
+        PUSH AF         ; keep the quotient and the carry flag
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        POP AF
         JR C,error
-        OUT (1),A       ; print the quotient
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; print the quotient
         HALT
 error:  LD A,'E'
-        OUT (0),A
+        RST 0x10
         HALT
 
 ; divide: A = A / B, carry clear on success. Carry set if B is 0.
@@ -53,11 +62,18 @@ divide:
       'Zero check, a subtraction loop, and carry set or cleared before RET.',
       `        ORG 0x8000
         CALL divide
+        PUSH AF         ; keep the quotient and the carry flag
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        POP AF
         JR C,error
-        OUT (1),A
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
         HALT
 error:  LD A,'E'
-        OUT (0),A
+        RST 0x10
         HALT
 
 divide:
@@ -92,16 +108,18 @@ fail:   SCF             ; report the error
     intro: 'Check for the awkward cases before the code can go wrong. The classic one: `DJNZ` with B = 0.',
     content: [
       { type: 'text', text: 'Most bugs live at the edges: an empty list, a count of zero, a value at its maximum. A `DJNZ` loop subtracts first, so entering it with B = 0 wraps to 255 and repeats 256 times instead of none. If a count might be zero, test it before the loop and jump past it.' },
-      { type: 'compare', high: 'for i in range(n):\n    show("*")', z80: '        INC B\n        DEC B\n        JR Z,done\nloop:   LD A,\'*\'\n        OUT (0),A\n        DJNZ loop\ndone:' },
+      { type: 'compare', high: 'for i in range(n):\n    show("*")', z80: '        INC B\n        DEC B\n        JR Z,done\nloop:   LD A,\'*\'\n        RST 0x10\n        DJNZ loop\ndone:' },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,0          ; an empty count
         INC B
         DEC B           ; sets Z if B is 0, leaves B alone
         JR Z,done       ; nothing to do
 loop:   LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ loop
 done:   HALT`,
         prints: '',
@@ -109,16 +127,18 @@ done:   HALT`,
       { type: 'tip', text: '`INC B` then `DEC B` is a small trick to test B without changing it. `LD A,B` followed by `OR A` does the same job through A.' },
     ],
     task: ['Register B holds a count from 0 to 5.', 'Print that many * characters. For a count of 0 print nothing at all.'],
-    starterCode: startWith('B contains a count from 0 to 5'),
+    starterCode: startWithScreen('B contains a count from 0 to 5'),
     hints: hints(
       ['A DJNZ loop entered with B = 0 would print 256 stars. Check for zero first.', 'INC B / DEC B sets the Zero flag if B was 0 without changing B.'],
       'Skip the loop if B is zero.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         INC B
         DEC B           ; Z set if B = 0
         JR Z,done       ; nothing to print
 loop:   LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ loop
 done:   HALT`,
     ),
@@ -147,15 +167,25 @@ done:   HALT`,
           ['DJNZ entered with B = 0', 'the loop runs 256 times'],
         ],
       },
-      { type: 'text', text: 'To see what is happening, print! Add `OUT (1),A` inside the loop to show the changing value, run it, and compare with what you expected. Remove the extra prints once it works.' },
+      { type: 'text', text: 'To see what is happening, print! Add a print of the value inside the loop to show how it changes, run it, and compare with what you expected. Printing a number with the ROM routines destroys A, BC and HL, so wrap the print in `PUSH`/`POP` to keep them. Remove the extra prints once it works.' },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,3
         XOR A
 loop:   ADD A,B
-        OUT (1),A       ; debug: show the running total
-        OUT (2),A
+        PUSH AF         ; save the total and the counter...
+        PUSH BC
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; debug: show the running total
+        LD A,13
+        RST 0x10
+        POP BC          ; ...and put them back
+        POP AF
         DJNZ loop
         HALT`,
         caption: 'The totals printed are 3, 5 and 6. If you expected something else, you have found where it goes wrong.',
@@ -164,6 +194,8 @@ loop:   ADD A,B
     ],
     task: ['This program should print the sum of the four numbers in data (10) but it prints something else.', 'Find the two bugs and fix them. Edit the starter code; do not rewrite it from scratch.'],
     starterCode: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         ; should print the sum of the four numbers in data
         LD HL,data
         LD B,3
@@ -171,21 +203,29 @@ loop:   ADD A,B
 sum:    ADD A,(HL)
         INC HL
         DJNZ sum
-        OUT (1),A
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
         HALT
 data:   DB 1,2,3,4
 `,
     hints: hints(
-      ['Add OUT (1),A inside the loop to watch the total. What does it look like before the first number is added?', 'Count the numbers in data. Does the loop go round that many times?'],
+      ['Print the total inside the loop (saving AF and BC with PUSH/POP) to watch it. What does it look like before the first number is added?', 'Count the numbers in data. Does the loop go round that many times?'],
       'The total must start at 0 and the loop must run four times.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,data
         LD B,4          ; bug 1: there are four numbers, not three
         XOR A           ; bug 2: the total must start at 0, not 10
 sum:    ADD A,(HL)
         INC HL
         DJNZ sum
-        OUT (1),A
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3
         HALT
 data:   DB 1,2,3,4`,
     ),

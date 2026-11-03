@@ -79,7 +79,12 @@ Rules worth knowing:
 
 - The machine has 64 KB of RAM. The stack pointer starts at `0xF000`. All registers start at 0 unless a challenge sets them.
 - A program ends at `HALT`. After 200,000 instructions it is stopped with "Program did not finish".
-- Console ports: `OUT (0),A` prints a character, `OUT (1),A` prints A as a decimal number, `OUT (2),A` prints a newline. `RST 0x10` also prints A. Any other port stops the program with an error. Output is capped at 20,000 characters.
+- Screen output uses real ZX Spectrum ROM routines, the same ones the reference book uses. The emulator stands in for them (there is no ROM), so code at the addresses below is never run:
+  - `CALL 0x1601` (CHAN-OPEN) opens the channel numbered in A. Only channel 2, the main screen, is supported. Every program that prints starts with `LD A,2` / `CALL 0x1601`. The emulator leaves all registers alone, because the trainer preloads a task's inputs before the program runs. On a real Spectrum, call it before loading your own values.
+  - `RST 0x10` (PRINT-A-1) prints the character in A. Code 13 is a newline. Characters 32 to 126 print as themselves and other codes print `?`, because colour and cursor control codes are not emulated.
+  - `CALL 0x2D2B` (STACK-BC) hands the number in BC to the ROM, then `CALL 0x2DE3` (PRINT-FP) prints it as decimal digits, 0 to 65535. The real routines use the registers freely, so the emulator zeroes BC and HL afterwards (A and the flags are left alone, but reload A rather than relying on it).
+  - Output appears on a 40x12 text screen in the results pane and is capped at 20,000 characters.
+- `OUT (n),A` is accepted for port 0xFE (border and speaker), which has no visible effect. Any other port stops the program with an error, because the Spectrum has no console port.
 - Flags S, Z, H, P/V, N and C follow a real Z80 (checked against the Python `z80` package). The undocumented bits 3 and 5 are not modelled.
 
 ## Cheat sheet

@@ -4,8 +4,8 @@
 // every worked example, and check the starter code fails, so a lesson is proven solvable and
 // its examples are proven to work.
 //
-// Output ports: OUT (0),A prints a character, OUT (1),A prints A as a decimal number and
-// OUT (2),A prints a newline.
+// Output uses two real ZX Spectrum ROM routines: RST 0x10 prints the character in A (13 = newline) and
+// CALL 0x2D2B then CALL 0x2DE3 print BC as a decimal number. See docs/assembler.md.
 
 import values from './lessons/m1-values.js'
 import operators from './lessons/m2-operators.js'

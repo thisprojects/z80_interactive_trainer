@@ -1,4 +1,4 @@
-import { startWith, hints } from './helpers.js'
+import { startWith, startWithScreen, hints } from './helpers.js'
 
 export default [
   {
@@ -8,15 +8,17 @@ export default [
     intro: 'A subroutine is a named piece of code you can run from anywhere and return from, like a function.',
     content: [
       { type: 'text', text: 'Give a block of code a label and end it with `RET`. `CALL label` runs it, and when it reaches `RET` the processor comes back to the instruction after the `CALL`. Write each subroutine once and call it as often as you like.' },
-      { type: 'compare', high: 'def bang():\n    show("!")\n\nbang()\nbang()', z80: '        CALL bang\n        CALL bang\n        HALT\nbang:   LD A,\'!\'\n        OUT (0),A\n        RET' },
+      { type: 'compare', high: 'def bang():\n    show("!")\n\nbang()\nbang()', z80: '        CALL bang\n        CALL bang\n        HALT\nbang:   LD A,\'!\'\n        RST 0x10\n        RET' },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         CALL bang
         CALL bang
         HALT            ; the main program ends here
 bang:   LD A,'!'        ; a subroutine
-        OUT (0),A
+        RST 0x10
         RET             ; back to just after the CALL`,
         prints: '!!',
       },
@@ -54,10 +56,15 @@ double: ADD A,A         ; A = A * 2
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,10
         LD B,3
         CALL add_twice  ; A = 10 + 3 + 3
-        OUT (1),A       ; prints 16
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 16
         HALT
 
 ; add_twice: A = A + B + B
@@ -144,16 +151,21 @@ average:
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD B,7
         CALL noisy      ; uses B as a counter inside
         LD A,B
-        OUT (1),A       ; still 7, because noisy saved it
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; still 7, because noisy saved it
         HALT
 
 noisy:  PUSH BC         ; save the caller's B and C
         LD B,3
 again:  LD A,'.'
-        OUT (0),A
+        RST 0x10
         DJNZ again
         POP BC          ; give them back
         RET`,
@@ -162,20 +174,25 @@ again:  LD A,'.'
       { type: 'tip', text: 'Decide a policy and document it in a comment: either the subroutine preserves everything except its answer, or it lists the registers it destroys. Either is fine if the caller knows.' },
     ],
     task: ['B holds a count from 1 to 5.', 'Write a subroutine called stars that prints that many * characters, using B as its loop counter.', 'After calling stars once, the main program prints the number in B as a decimal number, so the subroutine must give B back unchanged.'],
-    starterCode: startWith('B contains a count from 1 to 5', 'subroutines go after HALT'),
+    starterCode: startWithScreen('B contains a count from 1 to 5', 'subroutines go after HALT'),
     requires: { call: { label: 'stars', min: 1 } },
     hints: hints(
       ['DJNZ will change B, but the main program needs the original value afterwards.', 'PUSH BC at the start of the subroutine and POP BC just before RET.'],
       'The subroutine saves BC around its loop.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         CALL stars
         LD A,B
-        OUT (1),A       ; B must still be the count
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; B must still be the count
         HALT
 
 stars:  PUSH BC         ; save the caller's B
 more:   LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ more       ; this changes B
         POP BC          ; restore it
         RET`,
@@ -196,6 +213,8 @@ more:   LD A,'*'
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD BC,1
         LD DE,2
         LD HL,3
@@ -205,7 +224,10 @@ more:   LD A,'*'
         LD A,C
         ADD A,E
         ADD A,L
-        OUT (1),A       ; prints 6
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 6
         HALT`,
         prints: '6',
       },

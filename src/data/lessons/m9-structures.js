@@ -15,11 +15,16 @@ export default [
 AMMO    EQU 1
 SCORE   EQU 2
         ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,player
         LD DE,SCORE
         ADD HL,DE       ; HL = address of the score field
         LD A,(HL)
-        OUT (1),A       ; prints 20
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 20
         HALT
 player: DB 100,5,20     ; health, ammo, score`,
         prints: '20',
@@ -59,12 +64,17 @@ player: DB 100,5,20     ; health, ammo, score`,
         code: `AMMO    EQU 1
 SCORE   EQU 2
         ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD IX,player
         LD A,(IX+SCORE)
         ADD A,5
         LD (IX+SCORE),A ; score = 25
         LD A,(IX+AMMO)
-        OUT (1),A       ; prints 5
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 5
         HALT
 player: DB 100,5,20`,
         prints: '5',
@@ -74,11 +84,16 @@ player: DB 100,5,20`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD IX,players
         LD DE,3         ; each record is three bytes
         ADD IX,DE       ; IX now points at the second record
         LD A,(IX+2)     ; its third field
-        OUT (1),A       ; prints 6
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 6
         HALT
 players: DB 1,2,3,4,5,6`,
         prints: '6',
@@ -116,13 +131,18 @@ players: DB 1,2,3,4,5,6`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,3          ; which entry
         LD HL,pow
         LD E,A
         LD D,0
         ADD HL,DE       ; HL = pow + 3
         LD A,(HL)
-        OUT (1),A       ; prints 8
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 8
         HALT
 pow:    DB 1,2,4,8,16`,
         prints: '8',

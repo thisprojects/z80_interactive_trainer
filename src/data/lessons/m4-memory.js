@@ -13,12 +13,17 @@ export default [
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,10
         LD (0x9000),A   ; write 10 to address 0x9000
         LD A,(0x9000)   ; read it back
         ADD A,5
         LD (0x9001),A   ; write 15 to the next address
-        OUT (1),A       ; prints 15
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 15
         HALT`,
         prints: '15',
       },
@@ -26,10 +31,15 @@ export default [
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,(score)
         ADD A,5
         LD (score),A
-        OUT (1),A       ; prints 15
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 15
         HALT
 score:  DB 10           ; one byte, starting at 10`,
         prints: '15',
@@ -103,11 +113,16 @@ data:   DB 10,20`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,table
         LD DE,2         ; index 2 is the third element
         ADD HL,DE       ; HL = table + 2
         LD A,(HL)
-        OUT (1),A       ; prints 30
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 30
         HALT
 table:  DB 10,20,30,40`,
         prints: '30',
@@ -143,11 +158,16 @@ table:  DB 10,20,30,40`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,(value)   ; HL = 0x1234
         INC HL          ; HL = 0x1235
         LD (value),HL   ; store it back, low byte first
         LD A,L
-        OUT (1),A       ; prints 53, the low byte 0x35
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 53, the low byte 0x35
         HALT
 value:  DW 0x1234`,
         prints: '53',
@@ -183,8 +203,13 @@ value:  DW 0x1234`,
         code: `WIDTH   EQU 4
 HEIGHT  EQU 3
         ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD A,WIDTH*HEIGHT
-        OUT (1),A       ; prints 12
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 12
         HALT`,
         prints: '12',
       },

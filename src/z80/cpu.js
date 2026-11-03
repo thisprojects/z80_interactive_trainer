@@ -11,11 +11,12 @@ const parity = (v) => {
 }
 
 export class Z80Cpu {
-  constructor({ memory, onOut = () => {}, onIn = () => 0, onRst = () => false, onCall = () => {} } = {}) {
+  constructor({ memory, onOut = () => {}, onIn = () => 0, onRst = () => false, onRom = () => false, onCall = () => {} } = {}) {
     this.mem = memory || new Uint8Array(0x10000)
     this.onOut = onOut
     this.onIn = onIn
     this.onRst = onRst
+    this.onRom = onRom // called with a CALL target; true = handled like a ROM routine, so no call is made
     this.onCall = onCall
     this.reset()
   }
@@ -515,7 +516,7 @@ export class Z80Cpu {
         break
       case 4: {
         const nn = this.fetch16()
-        if (this.condition(y)) {
+        if (this.condition(y) && !this.onRom(nn, this)) {
           this.push(this.pc)
           this.pc = nn
           this.onCall(nn)
@@ -527,9 +528,11 @@ export class Z80Cpu {
           this.push(p === 3 ? (this.a << 8) | this.f : this.getRR(p))
         } else if (p === 0) { // CALL nn
           const nn = this.fetch16()
-          this.push(this.pc)
-          this.pc = nn
-          this.onCall(nn)
+          if (!this.onRom(nn, this)) {
+            this.push(this.pc)
+            this.pc = nn
+            this.onCall(nn)
+          }
         } else if (p === 2) this.execED()
         else if (p === 1) this.execIndexed('ix')
         else this.execIndexed('iy')

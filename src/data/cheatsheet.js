@@ -111,7 +111,7 @@ export const MNEMONICS = [
       ['DJNZ e', 'Decrement B; jump if B is not zero. The built-in counted loop.'],
       ['CALL nn / CALL cc,nn', 'Call a subroutine (pushes the return address).'],
       ['RET / RET cc', 'Return from a subroutine, optionally if a condition holds.'],
-      ['RST n', 'One-byte call to address 0, 8, 16 ... 56.'],
+      ['RST n', 'One-byte call to address 0, 8, 16 ... 56. On the ZX Spectrum, RST 0x10 prints the character in A (13 is a newline).'],
     ],
   },
   {
@@ -122,8 +122,8 @@ export const MNEMONICS = [
       ['LDI / LDD', 'Copy a single byte and step HL, DE forward / backward; BC counts down. Loop them yourself to do extra work per byte.'],
       ['CPIR / CPDR', 'Search forward / backward from HL for the value in A, for at most BC bytes. Z is set if it was found (HL is just past it).'],
       ['CPI / CPD', 'One step of that search: compare A with (HL), step HL, count BC down.'],
-      ['OUT (C),r', 'Write r to the port number held in C.'],
-      ['OUT (n),A', 'Write A to port n. Here: 0 = character, 1 = number, 2 = newline.'],
+      ['OUT (C),r', 'Write r to the port number held in C (see OUT (n),A).'],
+      ['OUT (n),A', 'Write A to port n. Only port 0xFE (border and speaker) is accepted here and it has no visible effect.'],
       ['NOP / HALT', 'Do nothing / stop the program. Always end with HALT.'],
     ],
   },
@@ -144,9 +144,12 @@ export const PARADIGMS = [
     id: 'counted-loop',
     title: 'Counted loop with DJNZ',
     blurb: 'Put the repeat count in B. DJNZ subtracts 1 and loops while B is not zero, so the body runs exactly B times (B counts down 5, 4, 3, 2, 1).',
-    code: `        LD B,5          ; repeat 5 times
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD B,5          ; repeat 5 times
 loop:   LD A,B
-        OUT (1),A       ; body: print the counter
+        ADD A,'0'       ; digit to character
+        RST 0x10        ; body: print the counter
         DJNZ loop       ; B = B - 1, jump if B != 0
         HALT`,
   },
@@ -154,11 +157,16 @@ loop:   LD A,B
     id: 'count-up',
     title: 'Counting up to a limit',
     blurb: 'Use INC with CP and a conditional jump when you need the counter to go upwards or to stop at a value other than zero.',
-    code: `        LD C,1          ; counter starts at 1
-loop:   LD A,C
-        OUT (1),A
-        INC C
-        LD A,C
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD D,1          ; counter starts at 1 (not B or C: printing a number destroys BC)
+loop:   LD A,D
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; print the counter
+        INC D
+        LD A,D
         CP 6            ; reached 6?
         JR NZ,loop      ; no: go round again
         HALT`,
@@ -167,7 +175,9 @@ loop:   LD A,C
     id: 'while',
     title: 'While loop (test first)',
     blurb: 'Test at the top so the body may run zero times. OR A sets Z when A is 0 without changing A.',
-    code: `        LD A,20
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,20
         LD B,0          ; B counts the halvings
 while:  OR A            ; is A zero?
         JR Z,done       ; yes: leave the loop
@@ -175,19 +185,25 @@ while:  OR A            ; is A zero?
         INC B
         JR while
 done:   LD A,B
-        OUT (1),A       ; prints 5
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 5
         HALT`,
   },
   {
     id: 'nested',
     title: 'Nested loops',
     blurb: 'Use a different register for each loop. DJNZ owns B, so give the outer loop C (or another register).',
-    code: `        LD C,3          ; 3 rows
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD C,3          ; 3 rows
 outer:  LD B,4          ; 4 stars per row
 inner:  LD A,'*'
-        OUT (0),A
+        RST 0x10
         DJNZ inner
-        OUT (2),A       ; newline
+        LD A,13
+        RST 0x10        ; newline
         DEC C
         JR NZ,outer
         HALT`,
@@ -209,62 +225,78 @@ loop:   INC HL          ; body
     id: 'if-else',
     title: 'If / else',
     blurb: 'CP sets the flags, then branch. Z means equal; C means A is less than the operand (unsigned); NC means greater or equal. Jump over the branch you do not want.',
-    code: `        LD A,7
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,7
         CP 10           ; compare A with 10
         JR C,less       ; carry set: A < 10
         LD A,'H'        ; else branch: A >= 10
         JR show
 less:   LD A,'L'        ; then branch: A < 10
-show:   OUT (0),A       ; prints L
+show:   RST 0x10        ; prints L
         HALT`,
   },
   {
     id: 'equal',
     title: 'Test for equal / zero',
     blurb: 'Z is set when two values are equal. To test a register against zero use OR A (or AND A); there is no need for CP 0.',
-    code: `        LD A,5
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,5
         CP 5
         JR NZ,skip      ; skip the next line unless equal
         LD A,'='
-        OUT (0),A
+        RST 0x10
 skip:   HALT`,
   },
   {
     id: 'max',
     title: 'Maximum of two values',
     blurb: 'CP B computes A - B. If there is no carry, A >= B, so keep A; otherwise copy B in.',
-    code: `        LD A,5
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,5
         LD B,9
         CP B
         JR NC,keep      ; A >= B: A is already the max
         LD A,B
-keep:   OUT (1),A       ; prints 9
+keep:   LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 9
         HALT`,
   },
   {
     id: 'bit-test',
     title: 'Testing a bit',
     blurb: 'BIT sets Z when the tested bit is 0. Handy for flags, parity (bit 0) and sign (bit 7).',
-    code: `        LD A,0b00000100
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,0b00000100
         BIT 2,A         ; is bit 2 set?
         JR Z,clear
         LD A,'1'
         JR show
 clear:  LD A,'0'
-show:   OUT (0),A       ; prints 1
+show:   RST 0x10        ; prints 1
         HALT`,
   },
   {
     id: 'array',
     title: 'Looping over an array',
     blurb: 'HL points at the data, B holds the length. Read with (HL), step with INC HL, and let DJNZ end the loop.',
-    code: `        LD HL,data
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD HL,data
         LD B,4          ; number of elements
         XOR A           ; A = 0, the running total
 sum:    ADD A,(HL)
         INC HL
         DJNZ sum
-        OUT (1),A       ; prints 10
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 10
         HALT
 data:   DB 1,2,3,4`,
   },
@@ -272,11 +304,13 @@ data:   DB 1,2,3,4`,
     id: 'string',
     title: 'Printing a zero-terminated string',
     blurb: 'End the text with a 0 byte and loop until you read it. This is the usual way to handle strings.',
-    code: `        LD HL,msg
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD HL,msg
 print:  LD A,(HL)
         OR A            ; reached the 0 terminator?
         JR Z,done
-        OUT (0),A
+        RST 0x10
         INC HL
         JR print
 done:   HALT
@@ -286,9 +320,14 @@ msg:    DB "Hello",0`,
     id: 'subroutine',
     title: 'Subroutines',
     blurb: 'CALL pushes the return address and jumps; RET pops it. Pass values in registers. Do not leave extra PUSHes on the stack when you RET.',
-    code: `        LD A,3
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,3
         CALL double
-        OUT (1),A       ; prints 6
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 6
         HALT
 
 double: ADD A,A         ; A = A * 2
@@ -308,7 +347,9 @@ double: ADD A,A         ; A = A * 2
     id: 'search',
     title: 'Searching a block with CPIR',
     blurb: 'Put the value in A, the start in HL and the maximum length in BC. CPIR stops at the first match (Z set, HL just past it) or when BC reaches 0.',
-    code: `        LD HL,data
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD HL,data
         LD BC,5         ; look at up to 5 bytes
         LD A,30
         CPIR
@@ -316,7 +357,7 @@ double: ADD A,A         ; A = A * 2
         LD A,'Y'
         JR show
 missing: LD A,'N'
-show:   OUT (0),A       ; prints Y
+show:   RST 0x10        ; prints Y
         HALT
 data:   DB 10,20,30,40,50`,
   },
@@ -331,7 +372,10 @@ SCORE   EQU 1
         ADD A,5
         LD (IX+SCORE),A ; score = 15
         LD A,(IX+SCORE)
-        OUT (1),A       ; prints 15
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 15
         HALT
 player: DB 30,10        ; age, score`,
   },
@@ -348,12 +392,14 @@ player: DB 30,10        ; age, score`,
     id: 'copy',
     title: 'Copying memory with LDIR',
     blurb: 'Set HL = source, DE = destination, BC = byte count, then LDIR does the whole copy.',
-    code: `        LD HL,src
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD HL,src
         LD DE,dst
         LD BC,3
         LDIR            ; copy 3 bytes
         LD A,(dst)
-        OUT (0),A       ; prints H
+        RST 0x10        ; prints H
         HALT
 src:    DB "Hi!"
 dst:    DS 3`,
@@ -362,13 +408,21 @@ dst:    DS 3`,
     id: 'multiply',
     title: 'Multiplying',
     blurb: 'There is no multiply instruction. Use repeated addition for any factor, or shifts for powers of two.',
-    code: `        LD A,0          ; 6 * 7 by repeated addition
+    code: `        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD A,0          ; 6 * 7 by repeated addition
         LD B,7
 add:    ADD A,6
         DJNZ add
-        OUT (1),A       ; prints 42
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 42
         SLA A           ; shift left = times 2
-        OUT (1),A       ; prints 84
+        LD C,A
+        LD B,0
+        CALL 0x2D2B
+        CALL 0x2DE3     ; prints 84
         HALT`,
   },
 ]

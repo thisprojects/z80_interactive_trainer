@@ -1,26 +1,50 @@
 import { describe, it, expect } from 'vitest'
-import { Machine, PORT, MAX_OUTPUT, TRUNCATED_MARK } from './machine.js'
+import { Machine, ROM, MAX_OUTPUT, TRUNCATED_MARK } from './machine.js'
 import { assemble } from './assembler.js'
 
 describe('Machine', () => {
-  it('captures console output from ports', () => {
+  it('prints with RST 0x10 and the ROM number routines like the Spectrum', () => {
     const m = new Machine()
-    m.load(assemble("LD A,'H'\nOUT (0),A\nLD A,42\nOUT (1),A\nOUT (2),A\nHALT"))
+    m.load(assemble("LD A,2\nCALL 0x1601\nLD A,'H'\nRST 0x10\nLD A,13\nRST 0x10\nLD BC,1234\nCALL 0x2D2B\nCALL 0x2DE3\nHALT"))
     const r = m.run()
     expect(r).toMatchObject({ halted: true, timedOut: false })
-    expect(m.output).toBe('H42\n')
-    expect(PORT.CHAR).toBe(0)
+    expect(m.output).toBe('H\n1234')
+    expect(ROM.PRINT_A).toBe(0x10)
   })
-  it('OUT (C),A prints through the port held in C', () => {
+  it('prints "?" for codes RST 0x10 does not show as plain characters', () => {
     const m = new Machine()
-    m.load(assemble("LD C,0\nLD A,'Q'\nOUT (C),A\nLD C,1\nLD A,7\nOUT (C),A\nHALT"))
+    m.load(assemble('LD A,1\nRST 0x10\nHALT'))
     m.run()
-    expect(m.output).toBe('Q7')
+    expect(m.output).toBe('?')
   })
-  it('reports unsupported ports instead of ignoring them', () => {
+  it('prints 0 to 65535 and leaves BC and HL unusable afterwards', () => {
+    const m = new Machine()
+    m.load(assemble('LD HL,5\nLD BC,0\nCALL 0x2D2B\nCALL 0x2DE3\nLD BC,65535\nCALL 0x2D2B\nCALL 0x2DE3\nHALT'))
+    m.run()
+    expect(m.output).toBe('065535')
+    expect(m.cpu.hl).toBe(0)
+    expect(m.cpu.bc).toBe(0)
+  })
+  it('explains misuse of the number and channel routines', () => {
+    const early = new Machine()
+    early.load(assemble('CALL 0x2DE3\nHALT'))
+    expect(() => early.run()).toThrow(/0x2D2B/)
+    const chan = new Machine()
+    chan.load(assemble('LD A,1\nCALL 0x1601\nHALT'))
+    expect(() => chan.run()).toThrow(/channel 2/)
+    const ok = new Machine()
+    ok.load(assemble('LD A,2\nLD HL,7\nCALL 0x1601\nHALT'))
+    ok.run()
+    expect(ok.cpu.hl).toBe(7)
+  })
+  it('OUT to port 0xFE is allowed but prints nothing; other ports are rejected', () => {
+    const ok = new Machine()
+    ok.load(assemble('LD A,2\nOUT (0xFE),A\nHALT'))
+    ok.run()
+    expect(ok.output).toBe('')
     const out = new Machine()
     out.load(assemble('OUT (9),A\nHALT'))
-    expect(() => out.run()).toThrow(/port 9 is not supported/)
+    expect(() => out.run()).toThrow(/port 9 is not emulated/)
     const inp = new Machine()
     inp.load(assemble('IN A,(1)\nHALT'))
     expect(() => inp.run()).toThrow(/IN from port 1/)
@@ -32,11 +56,7 @@ describe('Machine', () => {
     m.run()
     expect(m.callCounts.get(p.symbols.get('f'))).toBe(3)
   })
-  it('traps RST 0x10 as print-char, other RSTs call through', () => {
-    const m = new Machine()
-    m.load(assemble("LD A,'x'\nRST 16\nHALT"))
-    m.run()
-    expect(m.output).toBe('x')
+  it('lets other RSTs call through', () => {
     const m2 = new Machine()
     m2.load(assemble('RST 8\nHALT'))
     m2.cpu.step()
@@ -44,7 +64,7 @@ describe('Machine', () => {
   })
   it('caps runaway output', () => {
     const m = new Machine()
-    m.load(assemble("loop: LD A,'x'\nOUT (0),A\nJR loop"))
+    m.load(assemble("loop: LD A,'x'\nRST 16\nJR loop"))
     m.run()
     expect(m.truncated).toBe(true)
     expect(m.output).toBe('x'.repeat(MAX_OUTPUT) + TRUNCATED_MARK)

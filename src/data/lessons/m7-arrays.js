@@ -1,4 +1,4 @@
-import { startWith, hints } from './helpers.js'
+import { startWith, startWithScreen, hints } from './helpers.js'
 
 export default [
   {
@@ -7,16 +7,20 @@ export default [
     module: 'Arrays and strings',
     intro: 'Combine a pointer in HL with a counter in B to visit every element.',
     content: [
-      { type: 'text', text: 'Point HL at the first element, put the number of elements in B, and loop: work on `(HL)`, move on with `INC HL`, and let `DJNZ` count the elements. The array is processed one byte at a time, in order.' },
-      { type: 'compare', high: 'for x in list:\n    show(x)', z80: '        LD HL,list\n        LD B,3\nnext:   LD A,(HL)\n        OUT (1),A\n        INC HL\n        DJNZ next\nlist:   DB 7,8,9' },
+      { type: 'text', text: 'Point HL at the first element, put the number of elements in B, and loop: work on `(HL)`, move on with `INC HL`, and let `DJNZ` count the elements. The array is processed one byte at a time, in order. Here each element is a single digit, so adding `\'0\'` turns it into a character that `RST 0x10` can print.' },
+      { type: 'compare', high: 'for x in list:\n    show(x)', z80: '        LD HL,list\n        LD B,3\nnext:   LD A,(HL)\n        ADD A,\'0\'\n        RST 0x10\n        INC HL\n        DJNZ next\nlist:   DB 7,8,9' },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,list
         LD B,3          ; three elements
 next:   LD A,(HL)
-        OUT (1),A       ; print the element
-        OUT (2),A       ; and a new line
+        ADD A,'0'       ; turn the digit into its character
+        RST 0x10        ; print the element
+        LD A,13
+        RST 0x10        ; and a new line
         INC HL          ; move to the next one
         DJNZ next
         HALT
@@ -51,15 +55,17 @@ loop:   LD A,(HL)       ; read
     intro: 'A string is an array of characters. Ending it with a 0 byte lets a loop know where it stops.',
     content: [
       { type: 'text', text: '`DB "text"` stores the character codes of the text, one byte each. The Z80 does not know how long a string is, so the usual convention is to add a 0 byte at the end (a "terminator"). A print loop reads a character, stops if it is 0, otherwise prints it and moves on.' },
-      { type: 'compare', high: 'for ch in "Hi!":\n    show(ch)', z80: '        LD HL,msg\nnext:   LD A,(HL)\n        OR A\n        JR Z,done\n        OUT (0),A\n        INC HL\n        JR next\ndone:\nmsg:    DB "Hi!",0' },
+      { type: 'compare', high: 'for ch in "Hi!":\n    show(ch)', z80: '        LD HL,msg\nnext:   LD A,(HL)\n        OR A\n        JR Z,done\n        RST 0x10\n        INC HL\n        JR next\ndone:\nmsg:    DB "Hi!",0' },
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,msg
 next:   LD A,(HL)       ; read a character
         OR A            ; is it the 0 terminator?
         JR Z,done
-        OUT (0),A       ; print it
+        RST 0x10        ; print it
         INC HL          ; next character
         JR next
 done:   HALT
@@ -68,17 +74,19 @@ msg:    DB "Hi!",0`,
       },
       { type: 'tip', text: 'Forgetting the 0 is a classic bug: the loop runs on past the end of your text into whatever bytes follow.' },
     ],
-    task: ['Print exactly Hello, Z80! to the console, using a string in memory and a loop.'],
-    starterCode: startWith('port 0 prints a character'),
+    task: ['Print exactly Hello, Z80! on the screen, using a string in memory and a loop.'],
+    starterCode: startWithScreen('RST 0x10 prints a character'),
     hints: hints(
       ['Put the text in memory after HALT with DB "...",0 and give it a label.', 'Point HL at the label, then loop: LD A,(HL), stop on zero with OR A and JR Z, print, INC HL.'],
       'The string-printing loop from the example, with the new text.',
       `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,msg
 next:   LD A,(HL)
         OR A
         JR Z,done
-        OUT (0),A
+        RST 0x10
         INC HL
         JR next
 done:   HALT
@@ -96,12 +104,14 @@ msg:    DB "Hello, Z80!",0`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,src
         LD DE,dst
         LD BC,3
         LDIR            ; copy 3 bytes from src to dst
         LD A,(dst)
-        OUT (0),A       ; prints H
+        RST 0x10        ; prints H
         HALT
 src:    DB "Hi!"
 dst:    DS 3            ; three empty bytes`,
@@ -134,6 +144,8 @@ dst:    DS 3            ; three empty bytes`,
       {
         type: 'code',
         code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
         LD HL,data
         LD BC,5         ; look at up to 5 bytes
         LD A,30
@@ -142,7 +154,7 @@ dst:    DS 3            ; three empty bytes`,
         LD A,'Y'
         JR show
 missing: LD A,'N'
-show:   OUT (0),A       ; prints Y
+show:   RST 0x10        ; prints Y
         HALT
 data:   DB 10,20,30,40,50`,
         prints: 'Y',
