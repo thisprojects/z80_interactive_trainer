@@ -105,14 +105,14 @@ export default function LessonPane({ lesson, index, total, done, onPrevious, onN
           type="button"
           onClick={onPrevious}
           disabled={index === 0}
-          className="rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           ← Previous
         </button>
         <button
           type="button"
           onClick={onNext}
-          className="rounded bg-emerald-700 px-4 py-1 text-sm font-semibold text-white hover:bg-emerald-800"
+          className="cursor-pointer rounded bg-emerald-700 px-4 py-1 text-sm font-semibold text-white hover:bg-emerald-800"
         >
           {last ? 'Go to Challenges →' : 'Next →'}
         </button>

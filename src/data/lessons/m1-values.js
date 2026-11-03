@@ -108,42 +108,40 @@ export default [
     tests: [{ name: 'A = 0x7F, B = 0b10101010, C = "Q"', expect: { registers: { A: 0x7f, B: 0xaa, C: 0x51 } } }],
   },
   {
-    id: 'wraparound',
-    title: 'Bytes, wraparound and negative numbers',
+    id: 'bits-and-bytes',
+    title: 'Bits and bytes: why 0 to 255?',
     module: 'Values and registers',
-    intro: 'A byte only holds 256 different values. Negative numbers are stored as the values at the top of that range.',
+    intro: 'A byte is 8 bits, and 8 bits can make 256 different patterns. That is why a register holds 0 to 255.',
     content: [
-      { type: 'text', text: 'A register is 8 bits wide, so it holds 0 to 255 and nothing else. Go past 255 and the count starts again from 0, like a car odometer rolling over. This "wraparound" is normal behaviour, not an error.' },
-      { type: 'text', text: 'To store a negative number the processor counts backwards from the top: 255 stands for -1, 254 for -2, and so on down to 128 for -128. This is called two\'s complement. Bytes 0 to 127 are positive, 128 to 255 are negative, and bit 7 tells you which.' },
+      { type: 'text', text: 'Computers store everything in binary, a counting system with only two digits, 0 and 1. One binary digit is called a bit. A group of 8 bits is called a byte, and each 8-bit register on the Z80 holds exactly one byte.' },
+      { type: 'text', text: 'Each bit in a byte is worth a different amount, doubling as you move left. A number is the total of the bits that are 1.' },
       {
         type: 'table',
-        head: ['Written as', 'Same byte as', 'Meaning if signed'],
-        rows: [['-1', '255  0xFF', '-1'], ['-2', '254  0xFE', '-2'], ['-128', '128  0x80', '-128'], ['127', '127  0x7F', '127']],
+        head: ['Bit', '7', '6', '5', '4', '3', '2', '1', '0'],
+        rows: [['Worth', '128', '64', '32', '16', '8', '4', '2', '1'], ['Example', '0', '0', '0', '0', '0', '1', '0', '1']],
       },
+      { type: 'text', text: 'In the example, only the bits worth 4 and 1 are on, so the byte means 4 + 1 = 5. With every bit off you get 0. With every bit on you get 128 + 64 + 32 + 16 + 8 + 4 + 2 + 1 = 255. Each of the 8 bits can be on or off, so there are 2 x 2 x 2 x 2 x 2 x 2 x 2 x 2 = 256 patterns, and they give the numbers 0 to 255.' },
       {
         type: 'code',
         code: `        ORG 0x8000
-        LD A,-1         ; the assembler turns -1 into 255
-        LD B,255        ; exactly the same byte
-        LD C,-100       ; 156
-        LD A,5
-        NEG             ; A = 0 - A = -5, which is the byte 251
+        LD A,%00000101  ; bits worth 4 and 1 are on: 5
+        LD B,%11111111  ; every bit on: 255
+        LD C,%00000000  ; every bit off: 0
         HALT`,
       },
-      { type: 'text', text: '`NEG` negates A: it turns 5 into -5 (251) and -5 back into 5. It is the quick way to change a number\'s sign.' },
-      { type: 'tip', text: 'The register does not remember whether you meant a signed or an unsigned number. That is up to your program: 255 and -1 are the same byte.' },
+      { type: 'tip', text: 'A single register such as A or B is 8 bits wide, so it can never hold 256 or more. There are only 256 patterns, and they are used up by 0 to 255. Registers can also be joined in pairs (BC, DE and HL) to make 16-bit registers, which hold much bigger numbers. You will meet them later.' },
     ],
-    task: ['Put -3 in register A.', 'Put -128 in register B.', 'Put the same byte as 200 in register C, but write it as a negative number.'],
+    task: ['Put the largest number a byte can hold in register A.', 'Put the smallest number a byte can hold in register B.', 'Put the decimal equivalent of the byte 00010000 in register C.'],
     starterCode: START,
     hints: hints(
-      ['LD accepts a negative number directly, for example LD A,-1.', 'A byte of 200 is 256 - 200 = 56 below the top of the range.'],
-      '-3 is 253, -128 is 128, and 200 written negatively is -56.',
+      ['The largest byte has every bit on, and the smallest has every bit off.', 'For C, only one bit is on in 00010000. Use the table to see what that bit is worth.'],
+      'A is 255, B is 0 and C is 16.',
       `        ORG 0x8000
-        LD A,-3         ; 253
-        LD B,-128       ; 128
-        LD C,-56        ; 200
+        LD A,255        ; every bit on
+        LD B,0          ; every bit off
+        LD C,%00010000  ; only the bit worth 16 is on
         HALT`,
     ),
-    tests: [{ name: 'A = 253, B = 128, C = 200', expect: { registers: { A: 253, B: 128, C: 200 } } }],
+    tests: [{ name: 'A = 255, B = 0, C = 16', expect: { registers: { A: 255, B: 0, C: 16 } } }],
   },
 ]

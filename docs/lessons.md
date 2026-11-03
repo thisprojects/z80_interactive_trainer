@@ -6,11 +6,11 @@ The trainer has two groups of tasks. **Lessons** (the Learn tab) form a course: 
 
 The modules run in this order, and a lesson may use anything taught before it:
 
-1. Values and registers: `LD`, copying, number forms, bytes, wraparound, negatives.
+1. Values and registers: `LD`, copying, number forms, bits and bytes.
 2. Arithmetic and bits: add, subtract, increment, shifts, masks, `SET`/`RES`, 16-bit values, carry, `SBC HL`.
 3. Input and output: the console ports.
 4. Memory and data types: addresses, pointers, arrays, words, `EQU`.
-5. Control flow: jumps, flags and `CP`, if/else, `BIT`, combined conditions.
+5. Control flow: jumps, flags and `CP`, if/else, `BIT`, combined conditions, wraparound and negative numbers.
 6. Loops: counters, `DJNZ`, while loops, accumulating, nesting.
 7. Arrays and strings: looping over arrays, strings, `LDIR`, `CPIR`.
 8. Subroutines: `CALL`/`RET`, parameters, the stack, preserving registers, `EXX`.

@@ -20,7 +20,7 @@ export default function NavBar({
                 role="tab"
                 aria-selected={selected}
                 onClick={() => onTabChange(id)}
-                className={`px-3 py-1 ${selected ? 'bg-emerald-700 font-semibold text-white' : 'text-slate-200 hover:bg-slate-800'}`}
+                className={`cursor-pointer px-3 py-1 ${selected ? 'bg-emerald-700 font-semibold text-white' : 'text-slate-200 hover:bg-slate-800'}`}
               >
                 {label}
               </button>
@@ -43,7 +43,7 @@ export default function NavBar({
             type="button"
             onClick={onToggleCheatSheet}
             aria-pressed={showCheatSheet}
-            className="rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+            className="cursor-pointer rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
           >
             {showCheatSheet ? 'Back' : 'Cheat sheet'}
           </button>
@@ -53,7 +53,7 @@ export default function NavBar({
             <button
               type="button"
               onClick={onReset}
-              className="rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+              className="cursor-pointer rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
             >
               Reset
             </button>
@@ -61,7 +61,7 @@ export default function NavBar({
               type="button"
               onClick={onRun}
               title="Run (Ctrl/Cmd+Enter)"
-              className="rounded bg-emerald-700 px-4 py-1 text-sm font-semibold text-white hover:bg-emerald-800"
+              className="cursor-pointer rounded bg-emerald-700 px-4 py-1 text-sm font-semibold text-white hover:bg-emerald-800"
             >
               Run
             </button>

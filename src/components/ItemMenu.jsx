@@ -78,7 +78,7 @@ export default function ItemMenu({ items, selectedId, onSelect, noun = 'challeng
         aria-activedescendant={open ? optionId(active) : undefined}
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
-        className="flex max-w-[60vw] items-center gap-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100 hover:bg-slate-700"
+        className="flex max-w-[60vw] cursor-pointer items-center gap-2 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100 hover:bg-slate-700"
       >
         <span className="text-slate-400 capitalize">{noun}</span>
         <span className="truncate">{selectedIndex + 1}. {selected.title}</span>

@@ -9,7 +9,7 @@ export function Hint({ title, body, spoiler = false, code }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium hover:bg-slate-800 ${spoiler ? 'text-rose-300' : 'text-amber-300'}`}
+        className={`flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm font-medium hover:bg-slate-800 ${spoiler ? 'text-rose-300' : 'text-amber-300'}`}
       >
         <span>{title}</span>
         <span aria-hidden="true">{open ? '−' : '+'}</span>
