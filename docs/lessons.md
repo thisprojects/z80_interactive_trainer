@@ -9,7 +9,7 @@ The modules run in this order, and a lesson may use anything taught before it:
 1. Values and registers: `LD`, copying, number forms, bits and bytes.
 2. Arithmetic and bits: add, subtract, increment, shifts, masks, `SET`/`RES`, 16-bit values, carry, `SBC HL`.
 3. Input and output: opening the screen (`CALL 0x1601`), `RST 0x10` for characters and newlines, and the ROM number printer (`CALL 0x2D2B`, `CALL 0x2DE3`).
-4. Memory and data types: addresses, pointers, arrays, words, `EQU`.
+4. Memory and data types: addresses, pointers, arrays, words, 32-bit sums with `ADD`/`ADC HL`, `EQU`.
 5. Control flow: jumps, flags and `CP`, if/else, `BIT`, combined conditions, wraparound and negative numbers.
 6. Loops: counters, `DJNZ`, while loops, accumulating, nesting.
 7. Arrays and strings: looping over arrays, strings, `LDIR`, `CPIR`.

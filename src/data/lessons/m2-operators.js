@@ -264,22 +264,29 @@ export default [
     id: 'carry',
     title: 'The carry flag and bigger sums',
     module: 'Arithmetic and bits',
-    intro: 'When a sum does not fit in a byte, the Carry flag remembers the overflow. `ADC` adds it into the next byte.',
+    intro: 'A byte only holds 0 to 255. The Carry flag lets you add bigger numbers by working on one byte at a time.',
     content: [
-      { type: 'text', text: 'The processor keeps a few one-bit flags. After `ADD`, the Carry flag (C) is set if the answer went past 255 and wrapped. `200 + 100` leaves 44 in A and Carry set; `20 + 30` leaves Carry clear.' },
-      { type: 'text', text: '`ADC A,x` ("add with carry") adds x and the carry from the last step. So you can add numbers that are several bytes long, one byte at a time, lowest byte first. Here is `0x01F0 + 0x0120`:' },
+      { type: 'text', text: 'The processor keeps a few one-bit flags. After `ADD`, the Carry flag (C) is set if the answer went past 255 and wrapped. `200 + 100` leaves 44 in A and Carry set; `20 + 30` leaves Carry clear. The carry is the overflow: the 256 that did not fit in the byte.' },
+      { type: 'text', text: 'To hold numbers bigger than 255 you use a 16-bit register pair, which is two byte registers side by side: B and C make BC, and D and E make DE. In BC, B is the high byte and C is the low byte, so `BC = B × 256 + C`. For example 496 is 1 × 256 + 240, so to put 496 in BC you set B to 1 and C to 240. Likewise 288 in DE is D = 1 and E = 32.' },
+      { type: 'text', text: 'To add two 16-bit numbers with 8-bit instructions, add the low bytes first, then the high bytes, like adding on paper and carrying a 1 into the next column. If the low bytes overflow, the Carry flag is set, and the high-byte addition must include it. `ADC A,x` ("add with carry") does exactly that: it adds x and the carry from the last step.' },
+      { type: 'text', text: 'The rule: use `ADD` for the low byte, because nothing has been carried into it yet, and `ADC` for the high byte, to add in the carry. If you used `ADC` on the low byte, it would add whatever Carry was left over from earlier code and the answer could be one too big.' },
+      { type: 'text', text: 'Here is 496 + 288. BC holds the first number and DE the second. A is the only register that can do the sum, so each pair of bytes goes through A, and the answer is built up in HL:' },
       {
         type: 'code',
         code: `        ORG 0x8000
-        LD A,0xF0       ; low byte of 0x01F0
-        ADD A,0x20      ; + low byte of 0x0120 = 0x10, carry set
-        LD C,A
-        LD A,0x01       ; high byte of 0x01F0
-        ADC A,0x01      ; + high byte + carry = 0x03
-        LD B,A          ; BC = 0x0310
-        HALT`,
+        LD BC,496       ; B = 1, C = 240
+        LD DE,288       ; D = 1, E = 32
+        LD A,C          ; low byte of BC
+        ADD A,E         ; + low byte of DE: 240 + 32 = 272, too big, so A = 16 and carry is set
+        LD L,A          ; low byte of the answer
+        LD A,B          ; high byte of BC
+        ADC A,D         ; + high byte of DE + carry: 1 + 1 + 1 = 3
+        LD H,A          ; high byte of the answer
+        HALT            ; HL = 3 x 256 + 16 = 784`,
       },
-      { type: 'tip', text: '`LD` never touches the flags, so the carry survives the `LD C,A` and `LD A,0x01` in between. Instructions like `ADD`, `SUB`, `CP`, `AND` and `OR` do change them.' },
+      { type: 'text', text: 'The answer ends up in HL as H = 3 and L = 16, which is 3 × 256 + 16 = 784, or 496 + 288.' },
+      { type: 'tip', text: '`LD` never touches the flags, so the carry survives the `LD L,A` and `LD A,B` in between. Instructions like `ADD`, `SUB`, `CP`, `AND` and `OR` do change them.' },
+      { type: 'tip', text: 'You would not add 16-bit numbers this way in real code, because `ADD HL,rr` does it in one step. The same idea matters when numbers are bigger than 16 bits: a later lesson chains `ADD` and `ADC` to add 32-bit numbers.' },
     ],
     task: ['BC and DE hold 16-bit numbers (B and D are the high bytes).', 'Add DE to BC using 8-bit instructions, so that the carry passes from the low byte to the high byte.', 'Leave the sum in BC.'],
     starterCode: startWith('BC and DE contain 16-bit numbers', 'use ADD and ADC on A, not ADD HL'),
@@ -296,9 +303,9 @@ export default [
         HALT`,
     ),
     tests: [
-      { name: '0x01F0 + 0x0120', setup: { registers: { BC: 0x01f0, DE: 0x0120 } }, expect: { registers: { BC: 0x0310 } } },
-      { name: '0x00FF + 0x0001', setup: { registers: { BC: 0x00ff, DE: 0x0001 } }, expect: { registers: { BC: 0x0100 } } },
-      { name: '0x1234 + 0x1111', setup: { registers: { BC: 0x1234, DE: 0x1111 } }, expect: { registers: { BC: 0x2345 } } },
+      { name: '496 + 288', setup: { registers: { BC: 496, DE: 288 } }, expect: { registers: { BC: 784 } } },
+      { name: '255 + 1', setup: { registers: { BC: 255, DE: 1 } }, expect: { registers: { BC: 256 } } },
+      { name: '4660 + 4369', setup: { registers: { BC: 4660, DE: 4369 } }, expect: { registers: { BC: 9029 } } },
     ],
   },
   {
@@ -308,7 +315,7 @@ export default [
     intro: 'There is no 16-bit `SUB`. `SBC HL,rr` subtracts including the carry, so you clear the carry first.',
     content: [
       { type: 'text', text: 'For 16-bit numbers the Z80 has `ADC HL,rr` and `SBC HL,rr`: add or subtract a pair, plus or minus the carry flag. There is no plain 16-bit subtract, so to do `HL = HL - DE` you make sure the carry is clear first and then use `SBC`.' },
-      { type: 'text', text: '`OR A` is the usual way to clear the carry: it leaves A unchanged but resets Carry. `SCF` sets it again.' },
+      { type: 'text', text: '`OR A` is the usual way to clear the carry. The Z80 designers decided that every logical instruction (`AND`, `OR`, `XOR`) resets Carry, because nothing can overflow in a logical operation. `OR A` borrows that rule: it changes nothing in A but still clears Carry, in one byte. There is no "clear carry" instruction.' },
       {
         type: 'code',
         code: `        ORG 0x8000

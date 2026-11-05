@@ -191,6 +191,55 @@ value:  DW 0x1234`,
     ],
   },
   {
+    id: 'sum-32',
+    title: '32-bit numbers: chaining ADD and ADC',
+    module: 'Memory and data types',
+    intro: 'A 16-bit register tops out at 65535. For bigger numbers, store two words and add them with `ADD HL,DE` then `ADC HL,DE`.',
+    content: [
+      { type: 'text', text: 'Scores, timers and frame counters often outgrow 16 bits (65535). A 32-bit number takes four bytes, which is two words: the low word first, then the high word, each stored low byte first like any word. 70000 is 1 × 65536 + 4464, so its low word is 4464 and its high word is 1.' },
+      { type: 'text', text: 'The Z80 has no 32-bit add, so you add the low words, then the high words, and let the Carry flag pass the overflow between them. `ADD HL,DE` adds the low words and sets Carry if they overflowed. `ADC HL,DE` then adds the high words plus that carry. `LD HL,(address)`, `LD DE,(address)` and `LD (address),HL` do not change the flags, so the carry survives the loads and stores in between.' },
+      { type: 'text', text: 'This example adds 80000 to a 32-bit total, in place:' },
+      {
+        type: 'code',
+        code: `        ORG 0x8000
+        LD HL,(total)       ; low word of the total
+        LD DE,(amount)      ; low word of the amount
+        ADD HL,DE           ; add the low words, may set carry
+        LD (total),HL
+        LD HL,(total+2)     ; high word of the total
+        LD DE,(amount+2)    ; high word of the amount
+        ADC HL,DE           ; add the high words plus the carry
+        LD (total+2),HL
+        HALT                ; total = 70000 + 80000 = 150000
+total:  DW 4464, 1          ; 70000 = 1 x 65536 + 4464
+amount: DW 14464, 1         ; 80000 = 1 x 65536 + 14464`,
+      },
+      { type: 'tip', text: 'Use `ADD` for the low word and `ADC` for the high word, exactly as with bytes.' },
+    ],
+    task: ['Two 32-bit numbers are stored as two words each: the first at address 0x9000 and the second at address 0x9004.', 'Add them and store the 32-bit sum at address 0x9008. Leave the originals where they are.'],
+    starterCode: startWith('the numbers are at 0x9000 and 0x9004; put the sum at 0x9008'),
+    hints: hints(
+      ['Treat each number as a low word and a high word. The low word is at the lower address.', 'Add the low words with ADD HL,DE, store HL, then add the high words with ADC HL,DE and store HL again. The loads and stores do not disturb the carry.'],
+      'Low words with ADD, high words with ADC.',
+      `        ORG 0x8000
+        LD HL,(0x9000)  ; low word of the first number
+        LD DE,(0x9004)  ; low word of the second
+        ADD HL,DE       ; may set carry
+        LD (0x9008),HL
+        LD HL,(0x9002)  ; high word of the first
+        LD DE,(0x9006)  ; high word of the second
+        ADC HL,DE       ; includes the carry
+        LD (0x900A),HL
+        HALT`,
+    ),
+    tests: [
+      { name: '70000 + 80000', setup: { memory: { 0x9000: [0x70, 0x11, 0x01, 0x00], 0x9004: [0x80, 0x38, 0x01, 0x00] } }, expect: { memory: { 0x9000: [0x70, 0x11, 0x01, 0x00], 0x9004: [0x80, 0x38, 0x01, 0x00], 0x9008: [0xf0, 0x49, 0x02, 0x00] } } },
+      { name: '65535 + 1 carries into the high word', setup: { memory: { 0x9000: [0xff, 0xff, 0x00, 0x00], 0x9004: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { 0x9008: [0x00, 0x00, 0x01, 0x00] } } },
+      { name: '100000 + 200000', setup: { memory: { 0x9000: [0xa0, 0x86, 0x01, 0x00], 0x9004: [0x40, 0x0d, 0x03, 0x00] } }, expect: { memory: { 0x9008: [0xe0, 0x93, 0x04, 0x00] } } },
+      { name: '4294967295 + 1 wraps to 0', setup: { memory: { 0x9000: [0xff, 0xff, 0xff, 0xff], 0x9004: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { 0x9008: [0x00, 0x00, 0x00, 0x00] } } },
+    ],
+  },
+  {
     id: 'constants',
     title: 'Named constants with EQU',
     module: 'Memory and data types',
