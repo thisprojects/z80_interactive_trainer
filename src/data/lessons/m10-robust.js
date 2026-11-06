@@ -1,6 +1,53 @@
-import { startWith, startWithScreen, hints } from './helpers.js'
+import { startWithScreen, hints } from './helpers.js'
 
 export default [
+  {
+    id: 'guard-loops',
+    title: 'Guarding against bad input',
+    module: 'Errors and debugging',
+    intro: 'Check for the awkward cases before the code can go wrong. The classic one: `DJNZ` with B = 0.',
+    content: [
+      { type: 'text', text: 'Most bugs live at the edges: an empty list, a count of zero, a value at its maximum. A `DJNZ` loop subtracts first, so entering it with B = 0 wraps to 255 and repeats 256 times instead of none. If a count might be zero, test it before the loop and jump past it.' },
+      { type: 'compare', high: 'for i in range(n):\n    show("*")', z80: '        INC B\n        DEC B\n        JR Z,done\nloop:   LD A,\'*\'\n        RST 0x10\n        DJNZ loop\ndone:' },
+      {
+        type: 'code',
+        code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD B,3          ; try 0 here: nothing is printed
+        INC B
+        DEC B           ; sets Z if B is 0, leaves B alone
+        JR Z,done       ; nothing to do
+loop:   LD A,'*'
+        RST 0x10
+        DJNZ loop
+done:   HALT`,
+        prints: '***',
+      },
+      { type: 'tip', text: '`INC B` then `DEC B` is a small trick to test B without changing it. `LD A,B` followed by `OR A` does the same job through A.' },
+    ],
+    task: ['Register B holds a count from 0 to 5.', 'Print that many * characters. For a count of 0 print nothing at all.'],
+    starterCode: startWithScreen('B contains a count from 0 to 5'),
+    hints: hints(
+      ['A DJNZ loop entered with B = 0 would print 256 stars. Check for zero first.', 'INC B / DEC B sets the Zero flag if B was 0 without changing B.'],
+      'Skip the loop if B is zero.',
+      `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        INC B
+        DEC B           ; Z set if B = 0
+        JR Z,done       ; nothing to print
+loop:   LD A,'*'
+        RST 0x10
+        DJNZ loop
+done:   HALT`,
+    ),
+    tests: [
+      { name: 'zero stars', setup: { registers: { B: 0 } }, expect: { output: '' } },
+      { name: 'one star', setup: { registers: { B: 1 } }, expect: { output: '*' } },
+      { name: 'three stars', setup: { registers: { B: 3 } }, expect: { output: '***' } },
+    ],
+  },
   {
     id: 'carry-errors',
     title: 'Reporting errors with the carry flag',
@@ -102,53 +149,6 @@ fail:   SCF             ; report the error
     ],
   },
   {
-    id: 'guard-loops',
-    title: 'Guarding against bad input',
-    module: 'Errors and debugging',
-    intro: 'Check for the awkward cases before the code can go wrong. The classic one: `DJNZ` with B = 0.',
-    content: [
-      { type: 'text', text: 'Most bugs live at the edges: an empty list, a count of zero, a value at its maximum. A `DJNZ` loop subtracts first, so entering it with B = 0 wraps to 255 and repeats 256 times instead of none. If a count might be zero, test it before the loop and jump past it.' },
-      { type: 'compare', high: 'for i in range(n):\n    show("*")', z80: '        INC B\n        DEC B\n        JR Z,done\nloop:   LD A,\'*\'\n        RST 0x10\n        DJNZ loop\ndone:' },
-      {
-        type: 'code',
-        code: `        ORG 0x8000
-        LD A,2
-        CALL 0x1601     ; open the main screen channel
-        LD B,0          ; an empty count
-        INC B
-        DEC B           ; sets Z if B is 0, leaves B alone
-        JR Z,done       ; nothing to do
-loop:   LD A,'*'
-        RST 0x10
-        DJNZ loop
-done:   HALT`,
-        prints: '',
-      },
-      { type: 'tip', text: '`INC B` then `DEC B` is a small trick to test B without changing it. `LD A,B` followed by `OR A` does the same job through A.' },
-    ],
-    task: ['Register B holds a count from 0 to 5.', 'Print that many * characters. For a count of 0 print nothing at all.'],
-    starterCode: startWithScreen('B contains a count from 0 to 5'),
-    hints: hints(
-      ['A DJNZ loop entered with B = 0 would print 256 stars. Check for zero first.', 'INC B / DEC B sets the Zero flag if B was 0 without changing B.'],
-      'Skip the loop if B is zero.',
-      `        ORG 0x8000
-        LD A,2
-        CALL 0x1601     ; open the main screen channel
-        INC B
-        DEC B           ; Z set if B = 0
-        JR Z,done       ; nothing to print
-loop:   LD A,'*'
-        RST 0x10
-        DJNZ loop
-done:   HALT`,
-    ),
-    tests: [
-      { name: 'zero stars', setup: { registers: { B: 0 } }, expect: { output: '' } },
-      { name: 'one star', setup: { registers: { B: 1 } }, expect: { output: '*' } },
-      { name: 'three stars', setup: { registers: { B: 3 } }, expect: { output: '***' } },
-    ],
-  },
-  {
     id: 'debugging',
     title: 'Finding bugs',
     module: 'Errors and debugging',
@@ -230,39 +230,5 @@ sum:    ADD A,(HL)
 data:   DB 1,2,3,4`,
     ),
     tests: [{ name: 'prints 10', expect: { output: '10' } }],
-  },
-  {
-    id: 'bcd',
-    title: 'Decimal arithmetic with DAA',
-    module: 'Errors and debugging',
-    intro: 'Binary-coded decimal keeps one decimal digit in each half of a byte. `DAA` repairs the result of adding two of them.',
-    content: [
-      { type: 'text', text: 'Scores, clocks and money are decimal. In binary-coded decimal (BCD) each nibble (4 bits) holds one digit 0-9, so 47 is stored as the byte `0x47`. Plain `ADD` knows nothing about this: `0x19 + 0x28` gives `0x41`, not `0x47`. `DAA` ("decimal adjust accumulator") straight after the `ADD` (or `SUB`) fixes the answer up.' },
-      {
-        type: 'code',
-        code: `        ORG 0x8000
-        LD A,0x19       ; the number 19 in BCD
-        ADD A,0x28      ; binary result 0x41
-        DAA             ; adjusted to 0x47, which is 47 in BCD
-        HALT`,
-      },
-      { type: 'tip', text: 'DAA also sets the Carry flag when the decimal result passes 99, so you can chain it across bytes with `ADC` just like binary arithmetic.' },
-    ],
-    task: ['A and B each hold a two-digit BCD number.', 'Add them as decimal numbers, leaving the BCD result in A. The sum is at most 99.'],
-    starterCode: startWith('A and B hold BCD numbers, e.g. 0x25 means 25'),
-    hints: hints(
-      ['Add as normal.', 'Then run the adjustment instruction straight away, before anything changes the flags.'],
-      'ADD then DAA.',
-      `        ORG 0x8000
-        ADD A,B         ; binary add
-        DAA             ; fix it up as decimal
-        HALT`,
-    ),
-    tests: [
-      { name: '19 + 28', setup: { registers: { A: 0x19, B: 0x28 } }, expect: { registers: { A: 0x47 } } },
-      { name: '45 + 37', setup: { registers: { A: 0x45, B: 0x37 } }, expect: { registers: { A: 0x82 } } },
-      { name: '09 + 01', setup: { registers: { A: 0x09, B: 0x01 } }, expect: { registers: { A: 0x10 } } },
-      { name: '50 + 49', setup: { registers: { A: 0x50, B: 0x49 } }, expect: { registers: { A: 0x99 } } },
-    ],
   },
 ]

@@ -7,7 +7,7 @@ export default [
     module: 'Values and registers',
     intro: 'A program keeps its working values in registers. You will store numbers in them with `LD`.',
     content: [
-      { type: 'text', text: 'In a high-level language you make a variable and give it a value. The Z80 has no variables, but it has a few tiny, very fast storage boxes called registers, each with a fixed name. The 8-bit ones are `A B C D E H L`, and each holds a whole number from 0 to 255.' },
+      { type: 'text', text: 'In a high-level language you make a variable and give it a value. The Z80 does the same job with a few tiny, very fast storage boxes called registers, each with a fixed name. The 8-bit ones are `A B C D E H L`, and each holds a whole number from 0 to 255.' },
       { type: 'compare', high: 'b = 7', z80: 'LD B,7' },
       { type: 'text', text: '`LD` means "load". The register that receives the value goes first, then a comma, then the value. Read `LD B,7` as "B becomes 7". Here is a whole program:' },
       {

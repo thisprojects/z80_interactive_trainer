@@ -1,4 +1,4 @@
-import { startWith, hints } from './helpers.js'
+import { START, startWith, hints } from './helpers.js'
 
 export default [
   {
@@ -70,6 +70,45 @@ export default [
       { name: '50 - 49 - 1', setup: { registers: { A: 50, B: 49 } }, expect: { registers: { A: 0 } } },
       { name: '200 - 100 - 1', setup: { registers: { A: 200, B: 100 } }, expect: { registers: { A: 99 } } },
     ],
+  },
+  {
+    id: 'wraparound',
+    title: 'Bytes, wraparound and negative numbers',
+    module: 'Arithmetic and bits',
+    intro: 'A byte has 256 possible values. The processor treats exactly half of them as non-negative numbers (0 to 127) and the other half as negative numbers (-128 to -1).',
+    content: [
+      { type: 'text', text: 'The processor can read a byte in two ways. As unsigned numbers they mean 0 to 255. As signed numbers they are divided exactly in half: 128 values for zero and the positive numbers (0 to 127), and 128 values for the negative numbers (-128 to -1).' },
+      { type: 'text', text: 'Think of the 256 values as a circle, like a clock face. Start at 0 and count up to 127: those are the positive numbers. One more step and you land on 128, which signed arithmetic reads as -128, the most negative number. Keep counting up through 129, 130 ... 254, 255 and the signed meaning climbs from -127 back towards -1. One more step after 255 and you are back at 0.' },
+      { type: 'text', text: 'That last step is called wraparound, like a car odometer rolling over. It is normal behaviour, not an error.' },
+      {
+        type: 'table',
+        head: ['Written as', 'Same byte as', 'Meaning if signed'],
+        rows: [['-1', '255  0xFF', '-1'], ['-2', '254  0xFE', '-2'], ['-128', '128  0x80', '-128'], ['127', '127  0x7F', '127']],
+      },
+      {
+        type: 'code',
+        code: `        ORG 0x8000
+        LD A,-1         ; the assembler turns -1 into 255
+        LD B,255        ; exactly the same byte
+        LD C,-100       ; 156
+        LD A,5
+        NEG             ; A = 0 - A = -5, which is the byte 251
+        HALT`,
+      },
+      { type: 'text', text: '`NEG` negates A: it turns 5 into -5 (251) and -5 back into 5. It is the quick way to change a number\'s sign.' },
+    ],
+    task: ['Put -3 in register A.', 'Put -128 in register B.', 'Put the same byte as 200 in register C, but write it as a negative number.'],
+    starterCode: START,
+    hints: hints(
+      ['LD accepts a negative number directly, for example LD A,-1.', 'A byte of 200 is 256 - 200 = 56 below the top of the range.'],
+      '-3 is 253, -128 is 128, and 200 written negatively is -56.',
+      `        ORG 0x8000
+        LD A,-3         ; 253
+        LD B,-128       ; 128
+        LD C,-56        ; 200
+        HALT`,
+    ),
+    tests: [{ name: 'A = 253, B = 128, C = 200', expect: { registers: { A: 253, B: 128, C: 200 } } }],
   },
   {
     id: 'inc-dec',
@@ -266,11 +305,9 @@ export default [
     module: 'Arithmetic and bits',
     intro: 'A byte only holds 0 to 255. The Carry flag lets you add bigger numbers by working on one byte at a time.',
     content: [
-      { type: 'text', text: 'The processor keeps a few one-bit flags. After `ADD`, the Carry flag (C) is set if the answer went past 255 and wrapped. `200 + 100` leaves 44 in A and Carry set; `20 + 30` leaves Carry clear. The carry is the overflow: the 256 that did not fit in the byte.' },
-      { type: 'text', text: 'To hold numbers bigger than 255 you use a 16-bit register pair, which is two byte registers side by side: B and C make BC, and D and E make DE. In BC, B is the high byte and C is the low byte, so `BC = B × 256 + C`. For example 496 is 1 × 256 + 240, so to put 496 in BC you set B to 1 and C to 240. Likewise 288 in DE is D = 1 and E = 32.' },
-      { type: 'text', text: 'To add two 16-bit numbers with 8-bit instructions, add the low bytes first, then the high bytes, like adding on paper and carrying a 1 into the next column. If the low bytes overflow, the Carry flag is set, and the high-byte addition must include it. `ADC A,x` ("add with carry") does exactly that: it adds x and the carry from the last step.' },
-      { type: 'text', text: 'The rule: use `ADD` for the low byte, because nothing has been carried into it yet, and `ADC` for the high byte, to add in the carry. If you used `ADC` on the low byte, it would add whatever Carry was left over from earlier code and the answer could be one too big.' },
-      { type: 'text', text: 'Here is 496 + 288. BC holds the first number and DE the second. A is the only register that can do the sum, so each pair of bytes goes through A, and the answer is built up in HL:' },
+      { type: 'text', text: 'The processor keeps a few one-bit flags. After `ADD`, the Carry flag is set if the answer went past 255 and wrapped. `200 + 100` leaves 44 in A and Carry set; `20 + 30` leaves Carry clear. The carry is the overflow: the 256 that did not fit in the byte.' },
+      { type: 'text', text: 'That lets you add numbers bigger than 255 one byte at a time, like adding on paper and carrying a 1 into the next column. In a pair such as `BC`, B is the high byte and C the low byte, so `BC = B x 256 + C`: 496 is B = 1 and C = 240. Add the low bytes first with `ADD`, because nothing has been carried into them yet. Then add the high bytes with `ADC A,x` ("add with carry"), which also adds the carry from the low bytes.' },
+      { type: 'text', text: 'Here is 496 + 288. A is the only register that can do the sum, so each pair of bytes goes through A and the answer is built up in HL:' },
       {
         type: 'code',
         code: `        ORG 0x8000
@@ -283,10 +320,10 @@ export default [
         ADC A,D         ; + high byte of DE + carry: 1 + 1 + 1 = 3
         LD H,A          ; high byte of the answer
         HALT            ; HL = 3 x 256 + 16 = 784`,
+        caption: 'H = 3 and L = 16, which is 3 x 256 + 16 = 784, or 496 + 288.',
       },
-      { type: 'text', text: 'The answer ends up in HL as H = 3 and L = 16, which is 3 × 256 + 16 = 784, or 496 + 288.' },
-      { type: 'tip', text: '`LD` never touches the flags, so the carry survives the `LD L,A` and `LD A,B` in between. Instructions like `ADD`, `SUB`, `CP`, `AND` and `OR` do change them.' },
-      { type: 'tip', text: 'You would not add 16-bit numbers this way in real code, because `ADD HL,rr` does it in one step. The same idea matters when numbers are bigger than 16 bits: a later lesson chains `ADD` and `ADC` to add 32-bit numbers.' },
+      { type: 'tip', text: 'If you used `ADC` on the low byte, it would add whatever Carry was left over from earlier code, and the answer could be one too big. `LD` never touches the flags, so the carry survives the loads in between.' },
+      { type: 'tip', text: 'For 16 bits `ADD HL,rr` does all this in one step. The carry matters again for numbers bigger than 16 bits: a later lesson chains `ADD` and `ADC` to add 32-bit numbers.' },
     ],
     task: ['BC and DE hold 16-bit numbers (B and D are the high bytes).', 'Add DE to BC using 8-bit instructions, so that the carry passes from the low byte to the high byte.', 'Leave the sum in BC.'],
     starterCode: startWith('BC and DE contain 16-bit numbers', 'use ADD and ADC on A, not ADD HL'),
@@ -341,6 +378,40 @@ export default [
       { name: '1000 - 1 with a stray carry', setup: { registers: { HL: 1000, DE: 1, F: 1 } }, expect: { registers: { HL: 999 } } },
       { name: '0x1000 - 0x0001 with a stray carry', setup: { registers: { HL: 0x1000, DE: 1, F: 1 } }, expect: { registers: { HL: 0x0fff } } },
       { name: '5 - 5', setup: { registers: { HL: 5, DE: 5 } }, expect: { registers: { HL: 0 } } },
+    ],
+  },
+  {
+    id: 'bcd',
+    title: 'Decimal arithmetic with DAA',
+    module: 'Arithmetic and bits',
+    intro: 'Binary-coded decimal keeps one decimal digit in each half of a byte. `DAA` repairs the result of adding two of them.',
+    content: [
+      { type: 'text', text: 'Scores, clocks and money are decimal. In binary-coded decimal (BCD) each nibble (4 bits) holds one digit 0-9, so 47 is stored as the byte `0x47`. Plain `ADD` knows nothing about this: `0x19 + 0x28` gives `0x41`, not `0x47`. `DAA` ("decimal adjust accumulator") straight after the `ADD` (or `SUB`) fixes the answer up.' },
+      {
+        type: 'code',
+        code: `        ORG 0x8000
+        LD A,0x19       ; the number 19 in BCD
+        ADD A,0x28      ; binary result 0x41
+        DAA             ; adjusted to 0x47, which is 47 in BCD
+        HALT`,
+      },
+      { type: 'tip', text: 'DAA also sets the Carry flag when the decimal result passes 99, so you can chain it across bytes with `ADC` just like binary arithmetic.' },
+    ],
+    task: ['A and B each hold a two-digit BCD number.', 'Add them as decimal numbers, leaving the BCD result in A. The sum is at most 99.'],
+    starterCode: startWith('A and B hold BCD numbers, e.g. 0x25 means 25'),
+    hints: hints(
+      ['Add as normal.', 'Then run the adjustment instruction straight away, before anything changes the flags.'],
+      'ADD then DAA.',
+      `        ORG 0x8000
+        ADD A,B         ; binary add
+        DAA             ; fix it up as decimal
+        HALT`,
+    ),
+    tests: [
+      { name: '19 + 28', setup: { registers: { A: 0x19, B: 0x28 } }, expect: { registers: { A: 0x47 } } },
+      { name: '45 + 37', setup: { registers: { A: 0x45, B: 0x37 } }, expect: { registers: { A: 0x82 } } },
+      { name: '09 + 01', setup: { registers: { A: 0x09, B: 0x01 } }, expect: { registers: { A: 0x10 } } },
+      { name: '50 + 49', setup: { registers: { A: 0x50, B: 0x49 } }, expect: { registers: { A: 0x99 } } },
     ],
   },
 ]

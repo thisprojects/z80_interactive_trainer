@@ -3,13 +3,24 @@ import { Machine } from './machine.js'
 
 const hex = (n, w = 2) => '0x' + n.toString(16).toUpperCase().padStart(w, '0')
 
+// A memory key in a test is either an address (9000, 0x9000) or the name of a label the
+// learner's program defines, so a task can say "make an array called scores" and check it.
+function resolveAddress(key, program) {
+  if (/^\d+$/.test(String(key))) return Number(key)
+  return program.symbols.get(String(key).toLowerCase())
+}
+
 // Assemble and run source once with an optional setup ({ registers, memory }).
 export function runProgram(source, setup = {}, maxSteps) {
   const program = assemble(source)
   const machine = new Machine()
   machine.load(program)
   machine.setRegisters(setup.registers)
-  for (const [addr, bytes] of Object.entries(setup.memory || {})) machine.poke(Number(addr), bytes)
+  for (const [where, bytes] of Object.entries(setup.memory || {})) {
+    const addr = resolveAddress(where, program)
+    if (addr === undefined) throw new Error(`The test needs a label called "${where}", but your program does not define one`)
+    machine.poke(addr, bytes)
+  }
   const result = machine.run(maxSteps)
   return { machine, program, ...result, output: machine.output }
 }
@@ -51,10 +62,16 @@ function checkTest(challenge, source, test) {
     const got = regs[name.toUpperCase()]
     if (got !== want) failures.push({ what: `register ${name.toUpperCase()}`, expected: String(want), actual: String(got) })
   }
-  for (const [addr, bytes] of Object.entries(expect.memory || {})) {
-    const got = Array.from(run.machine.memory.slice(Number(addr), Number(addr) + bytes.length))
+  for (const [where, bytes] of Object.entries(expect.memory || {})) {
+    const addr = resolveAddress(where, run.program)
+    if (addr === undefined) {
+      failures.push({ what: `label "${where}"`, expected: 'defined in your program', actual: 'no such label' })
+      continue
+    }
+    const got = Array.from(run.machine.memory.slice(addr, addr + bytes.length))
     if (got.some((v, i) => v !== bytes[i])) {
-      failures.push({ what: `memory at ${hex(Number(addr), 4)}`, expected: bytes.join(', '), actual: got.join(', ') })
+      const named = /^\d+$/.test(String(where)) ? hex(addr, 4) : `${where} (${hex(addr, 4)})`
+      failures.push({ what: `memory at ${named}`, expected: bytes.join(', '), actual: got.join(', ') })
     }
   }
   return { name: test.name, passed: failures.length === 0, output: run.output, failures }

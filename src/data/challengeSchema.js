@@ -26,6 +26,7 @@
 //     name:   'test case name',
 //     setup:  { registers: { A: 5 }, memory: { 0x9000: [1, 2, 3] } },   // optional
 //     expect: { output: 'text', registers: { A: 10 }, memory: { 0x9000: [3] } },
+//   // a memory key may also be a label the learner's program defines: memory: { scores: [1, 2, 3] }
 //   }],
 // }
 //

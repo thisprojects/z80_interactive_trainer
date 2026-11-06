@@ -35,6 +35,24 @@ describe('runChallenge requires.call', () => {
   })
 })
 
+describe('memory keyed by label', () => {
+  const src = 'LD HL,(nums)\nINC HL\nLD (nums),HL\nHALT\nnums: DW 5'
+  it('setup and expect can name a label the program defines', () => {
+    const r = runProgram(src, { memory: { nums: [9, 0] } })
+    expect(r.machine.memory[r.program.symbols.get('nums')]).toBe(10)
+    const ok = runChallenge(challenge([{ name: 'label', setup: { memory: { NUMS: [9, 0] } }, expect: { memory: { nums: [10, 0] } } }]), src)
+    expect(ok.passed).toBe(true)
+  })
+  it('fails clearly when the label is missing or the bytes differ', () => {
+    const missing = runChallenge(challenge([{ name: 'm', expect: { memory: { total: [1] } } }]), src)
+    expect(missing.results[0].failures[0]).toMatchObject({ what: 'label "total"', actual: 'no such label' })
+    const wrong = runChallenge(challenge([{ name: 'w', expect: { memory: { nums: [7, 0] } } }]), src)
+    expect(wrong.results[0].failures[0].what).toMatch(/^memory at nums \(0x/)
+    const noLabelSetup = runChallenge(challenge([{ name: 's', setup: { memory: { total: [1] } }, expect: { registers: { A: 0 } } }]), src)
+    expect(noLabelSetup.results[0].error).toMatch(/needs a label called "total"/)
+  })
+})
+
 describe('runChallenge', () => {
   const src = 'LD A,5\nLD C,A\nLD B,0\nCALL 0x2D2B\nCALL 0x2DE3\nLD (0x9000),A\nHALT'
   it('passes when everything matches', () => {

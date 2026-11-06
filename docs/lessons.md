@@ -7,21 +7,22 @@ The trainer has two groups of tasks. **Lessons** (the Learn tab) form a course: 
 The modules run in this order, and a lesson may use anything taught before it:
 
 1. Values and registers: `LD`, copying, number forms, bits and bytes.
-2. Arithmetic and bits: add, subtract, increment, shifts, masks, `SET`/`RES`, 16-bit values, carry, `SBC HL`.
+2. Arithmetic and bits: add, subtract, bytes and negative numbers (wraparound, `NEG`), increment, shifts, masks, `SET`/`RES`, 16-bit values, carry, `SBC HL`, decimal arithmetic (`DAA`).
 3. Input and output: opening the screen (`CALL 0x1601`), `RST 0x10` for characters and newlines, and the ROM number printer (`CALL 0x2D2B`, `CALL 0x2DE3`).
 4. Memory and data types: addresses, pointers, arrays, words, 32-bit sums with `ADD`/`ADC HL`, `EQU`.
-5. Control flow: jumps, flags and `CP`, if/else, `BIT`, combined conditions, wraparound and negative numbers.
+5. Control flow: jumps, flags and `CP`, if/else, `BIT`, combined conditions.
 6. Loops: counters, `DJNZ`, while loops, accumulating, nesting.
 7. Arrays and strings: looping over arrays, strings, `LDIR`, `CPIR`.
 8. Subroutines: `CALL`/`RET`, parameters, the stack, preserving registers, `EXX`.
-9. Data structures: records, `IX`, lookup tables.
-10. Errors and debugging: the carry flag as an error signal, guarding loops, bug hunting, BCD.
+9. Data structures: records, `IX`, stepping `IX` through a list of records, lookup tables.
+10. Errors and debugging: guarding loops, the carry flag as an error signal, bug hunting.
 
 ## A lesson's shape
 
 - `content` is a list of blocks shown in order: `text` (with `` `inline code` ``), `code` (a worked example), `compare` (a high-level language beside the Z80 version: "in Python you would write this, in Z80 you write that"), `tip` and `table`.
 - `task` and `starterCode` set the exercise. The task should use the idea just taught but be *slightly different* from the worked example, so it cannot be answered by copying. Say what to do; the lesson text and hints are where the how belongs.
 - `tests` are checked exactly as for challenges. Use several cases including edge cases, and set up the registers or memory the task describes.
+- **Data-type lessons make the learner create the data.** When a lesson teaches a variable, array, word, record and so on, the task says what to define ("create an array called `scores` holding 10, 20, 30, 40") and the tests look at it by label. A memory key in `setup` or `expect` can be an address (`0x9000`) or the name of a label the learner's program defines (`scores`). In `setup` a label key overwrites the learner's data before the run, so one task can be tested with several data sets; in `expect` it checks the bytes at that label. A missing label fails the test with "no such label". Pick label names that are not register names.
 - `hints` go from a pointer, to a more concrete pointer, to a final hint that is a **spoiler** (`spoiler: true`, with `body` and the full commented `code`). Every lesson has one so nobody is stuck.
 
 ## What the tests enforce

@@ -31,24 +31,26 @@ player: DB 100,5,20     ; health, ammo, score`,
       },
       { type: 'tip', text: 'An array of records works the same way: element `i` starts at `base + i * record_size`.' },
     ],
-    task: ['HL points at a record of three bytes: health, ammo, score.', 'Take 1 away from the ammo field and add 10 to the score field. Leave health alone. Ammo is at least 1 and the score stays at most 255.'],
-    starterCode: startWith('HL points at: health, ammo, score'),
+    task: ['Create a record called player of three bytes: health 100, ammo 5 and score 20.', 'Take 1 away from the ammo field and add 10 to the score field. Leave health alone.'],
+    starterCode: startWith('define the record player with DB after HALT'),
     hints: hints(
-      ['Step HL past the health byte to reach ammo, then past ammo to reach score.', 'Work on each field with a read, a change and a write back, e.g. DEC (HL) works directly on memory.'],
-      'DEC (HL) on the ammo byte; ADD to the score byte.',
+      ['Put the record after HALT: the label player, then DB with the three values in order (health, ammo, score).', 'Point HL at player, then step past the health byte to reach ammo, and past ammo to reach score.', 'Work on each field with a read, a change and a write back, e.g. DEC (HL) works directly on memory.'],
+      'Define the record, DEC (HL) on the ammo byte, ADD to the score byte.',
       `        ORG 0x8000
+        LD HL,player
         INC HL          ; HL -> ammo
         DEC (HL)        ; ammo = ammo - 1
         INC HL          ; HL -> score
         LD A,(HL)
         ADD A,10
         LD (HL),A       ; score = score + 10
-        HALT`,
+        HALT
+player: DB 100,5,20     ; health, ammo, score`,
     ),
     tests: [
-      { name: 'typical player', setup: { registers: { HL: 0x9000 }, memory: { 0x9000: [100, 5, 20] } }, expect: { memory: { 0x9000: [100, 4, 30] } } },
-      { name: 'last bullet', setup: { registers: { HL: 0x9100 }, memory: { 0x9100: [50, 1, 0] } }, expect: { memory: { 0x9100: [50, 0, 10] } } },
-      { name: 'score reaches 255', setup: { registers: { HL: 0x9200 }, memory: { 0x9200: [1, 9, 245] } }, expect: { memory: { 0x9200: [1, 8, 255] } } },
+      { name: 'typical player', expect: { memory: { player: [100, 4, 30] } } },
+      { name: 'last bullet', setup: { memory: { player: [50, 1, 0] } }, expect: { memory: { player: [50, 0, 10] } } },
+      { name: 'score reaches 255', setup: { memory: { player: [1, 9, 245] } }, expect: { memory: { player: [1, 8, 255] } } },
     ],
   },
   {
@@ -80,7 +82,37 @@ player: DB 100,5,20`,
         prints: '5',
       },
       { type: 'text', text: 'Many instructions accept `(IX+d)` where they accept `(HL)`: `LD A,(IX+d)`, `ADD A,(IX+d)`, `INC (IX+d)`, `DEC (IX+d)`, `CP (IX+d)` and `BIT 0,(IX+d)`. `LD (IX+d),n` stores a constant straight into a field.' },
-      { type: 'text', text: 'IX can itself be moved. `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, which is how you step from one record to the next in a list of records. Put the record size in DE first.' },
+      { type: 'tip', text: '`IY` is a second index register that works in exactly the same way.' },
+    ],
+    task: ['Create a record called point of three bytes: x 3, y 4 and total 0.', 'Set total (offset 2) to x + y, and double y (offset 1) in place. Leave x alone.'],
+    starterCode: startWith('define the record point with DB after HALT, then use IX on it'),
+    hints: hints(
+      ['Define point with DB after HALT, point IX at it with LD IX,point, then read x with LD A,(IX+0) and add y with ADD A,(IX+1).', 'Store the sum with LD (IX+2),A, then double y: read it, ADD A,A, write it back.'],
+      'Define the record, compute the total first, then double y.',
+      `        ORG 0x8000
+        LD IX,point
+        LD A,(IX+0)     ; x
+        ADD A,(IX+1)    ; + y
+        LD (IX+2),A     ; total
+        LD A,(IX+1)
+        ADD A,A         ; y * 2
+        LD (IX+1),A
+        HALT
+point:  DB 3,4,0        ; x, y, total`,
+    ),
+    tests: [
+      { name: '3, 4', expect: { memory: { point: [3, 8, 7] } } },
+      { name: '10, 20, stale total', setup: { memory: { point: [10, 20, 99] } }, expect: { memory: { point: [10, 40, 30] } } },
+      { name: 'zeros', setup: { memory: { point: [0, 0, 5] } }, expect: { memory: { point: [0, 0, 0] } } },
+    ],
+  },
+  {
+    id: 'ix-stepping',
+    title: 'Stepping IX through a list of records',
+    module: 'Data structures',
+    intro: 'Move IX on by the record size to visit each record in a list.',
+    content: [
+      { type: 'text', text: '`IX` can itself be moved. `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, which is how you step from one record to the next in a list of records. Put the record size in DE first.' },
       {
         type: 'code',
         code: `        ORG 0x8000
@@ -98,26 +130,30 @@ player: DB 100,5,20`,
 players: DB 1,2,3,4,5,6`,
         prints: '6',
       },
-      { type: 'tip', text: '`IY` is a second index register that works in exactly the same way.' },
+      { type: 'tip', text: 'Loop over a list of records with a counter in B: do the work with `(IX+d)`, add the record size to IX, and let `DJNZ` count the records.' },
     ],
-    task: ['IX points at a record of three bytes: x, y and total.', 'Set total (offset 2) to x + y, and double y (offset 1) in place. Leave x alone.'],
-    starterCode: startWith('IX points at: x, y, total'),
+    task: ['Create a list called items of three records, each three bytes: a, b and total. The records are (1, 2, 0), (3, 4, 0) and (5, 6, 0).', 'In every record set total (offset 2) to a + b.'],
+    starterCode: startWith('define the list items with DB after HALT, then use IX on it'),
     hints: hints(
-      ['Read x with LD A,(IX+0) and add y with ADD A,(IX+1).', 'Store the sum with LD (IX+2),A, then double y: read it, ADD A,A, write it back.'],
-      'Compute the total first, then double y.',
+      ['Define items after HALT: nine DB values, three records of a, b and total.', 'Point IX at items, put the number of records in B and the record size in DE. Each pass reads a and b, writes total, then moves IX on to the next record.'],
+      'A loop of three passes, each filling in one total and stepping IX on by three.',
       `        ORG 0x8000
-        LD A,(IX+0)     ; x
-        ADD A,(IX+1)    ; + y
+        LD IX,items
+        LD B,3          ; three records
+        LD DE,3         ; size of a record
+loop:   LD A,(IX+0)     ; a
+        ADD A,(IX+1)    ; + b
         LD (IX+2),A     ; total
-        LD A,(IX+1)
-        ADD A,A         ; y * 2
-        LD (IX+1),A
-        HALT`,
+        ADD IX,DE       ; on to the next record
+        DJNZ loop
+        HALT
+items:  DB 1,2,0
+        DB 3,4,0
+        DB 5,6,0`,
     ),
     tests: [
-      { name: '3, 4', setup: { registers: { IX: 0x9000 }, memory: { 0x9000: [3, 4, 0] } }, expect: { memory: { 0x9000: [3, 8, 7] } } },
-      { name: '10, 20, stale total', setup: { registers: { IX: 0x9100 }, memory: { 0x9100: [10, 20, 99] } }, expect: { memory: { 0x9100: [10, 40, 30] } } },
-      { name: 'zeros', setup: { registers: { IX: 0x9200 }, memory: { 0x9200: [0, 0, 5] } }, expect: { memory: { 0x9200: [0, 0, 0] } } },
+      { name: 'the given records', expect: { memory: { items: [1, 2, 3, 3, 4, 7, 5, 6, 11] } } },
+      { name: 'other values and stale totals', setup: { memory: { items: [10, 20, 99, 0, 0, 5, 100, 55, 7] } }, expect: { memory: { items: [10, 20, 30, 0, 0, 0, 100, 55, 155] } } },
     ],
   },
   {

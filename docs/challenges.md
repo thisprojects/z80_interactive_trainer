@@ -30,7 +30,7 @@ The title must say "Spoiler" so learners know before opening it, and it must be 
 - `difficulty`: **beginner** is a short task using one or two lessons; **intermediate** loops over memory or combines several ideas; **advanced** is a small complete program.
 - `category`: one of `basics`, `arithmetic`, `conditionals`, `loops`, `memory`, `subroutines`, `output`.
 - `starterCode` must start with `ORG 0x8000` (the schema enforces this) and fail the tests as written.
-- `tests`: use several cases, including edge cases (zero, 255, one element, equal values). A single case is acceptable only when the result is fixed. A test checks the registers, memory and console output you list in `expect`, so list everything that matters, including bytes next to a block that must not be touched.
+- `tests`: use several cases, including edge cases (zero, 255, one element, equal values). A single case is acceptable only when the result is fixed. A test checks the registers, memory and console output you list in `expect`, so list everything that matters, including bytes next to a block that must not be touched. A memory key can be an address or a label name the learner's program must define (see `lessons.md`).
 - `requires: { call: { label: 'double', min: 3 } }` makes the program define that label and `CALL` it at least `min` times while running. Use it when the task is to write and use a subroutine.
 
 ## Checking your tests are strong

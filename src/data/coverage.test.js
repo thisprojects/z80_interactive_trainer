@@ -94,7 +94,7 @@ describe('instruction coverage', () => {
   it('notices an instruction or a form that has not been taught yet', () => {
     expect(missing('        DAA', taughtUpTo(0))).toEqual(['DAA'])
     expect(missing('        LD A,1\n        DAA', taughtUpTo(lessons.length - 1))).toEqual([])
-    const ixLesson = lessons.findIndex((l) => l.id === 'index-registers')
+    const ixLesson = lessons.findIndex((l) => l.id === 'ix-stepping')
     expect(missing('        ADD IX,DE', taughtUpTo(ixLesson - 1))).toContain('ADD IX')
     expect(missing('        ADD IX,DE', taughtUpTo(ixLesson))).toEqual([])
   })

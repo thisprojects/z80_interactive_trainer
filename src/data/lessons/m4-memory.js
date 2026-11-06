@@ -45,21 +45,22 @@ score:  DB 10           ; one byte, starting at 10`,
         prints: '15',
       },
     ],
-    task: ['The byte at address 0x9000 holds a number.', 'Add 4 to it and store the answer back at the same address.'],
-    starterCode: startWith('the number is in memory at address 0x9000'),
+    task: ['Create a one-byte variable called ammo that starts at 6.', 'Add 4 to it and store the answer back in ammo.', 'Put the variable after HALT, so the processor never runs it as an instruction.'],
+    starterCode: startWith('define ammo with DB after HALT, then add 4 to it'),
     hints: hints(
-      ['Memory can only be reached through A for this: read it with LD A,(address).', 'Add 4 with ADD A,4, then write it back with LD (address),A.'],
-      'Read, add, write back.',
+      ['Put the variable after HALT: a label, then DB and its starting value.', 'Memory can only be reached through A for this: read it with LD A,(ammo), add 4 with ADD A,4, then write it back with LD (ammo),A.'],
+      'Define the variable, then read, add, write back.',
       `        ORG 0x8000
-        LD A,(0x9000)   ; read
+        LD A,(ammo)     ; read
         ADD A,4         ; change
-        LD (0x9000),A   ; write back
-        HALT`,
+        LD (ammo),A     ; write back
+        HALT
+ammo:   DB 6            ; the variable, starting at 6`,
     ),
     tests: [
-      { name: '3 becomes 7', setup: { memory: { 0x9000: [3] } }, expect: { memory: { 0x9000: [7] } } },
-      { name: '250 becomes 254', setup: { memory: { 0x9000: [250] } }, expect: { memory: { 0x9000: [254] } } },
-      { name: '0 becomes 4', setup: { memory: { 0x9000: [0] } }, expect: { memory: { 0x9000: [4] } } },
+      { name: '6 becomes 10', expect: { memory: { ammo: [10] } } },
+      { name: '250 becomes 254', setup: { memory: { ammo: [250] } }, expect: { memory: { ammo: [254] } } },
+      { name: '0 becomes 4', setup: { memory: { ammo: [0] } }, expect: { memory: { ammo: [4] } } },
     ],
   },
   {
@@ -68,39 +69,44 @@ score:  DB 10           ; one byte, starting at 10`,
     module: 'Memory and data types',
     intro: 'Put an address in HL and `(HL)` becomes the byte it points at. Move HL and you move along memory.',
     content: [
-      { type: 'text', text: 'A pointer is a variable that holds an address. On the Z80, `HL` is the pointer register. `LD HL,data` puts the address of `data` in HL, and `(HL)` then means "the byte at the address in HL". You can read it with `LD A,(HL)` and write it with `LD (HL),A`.' },
+      { type: 'text', text: 'A pointer is a variable that holds an address, such as the address of another variable. On the Z80, `HL` is the pointer register. `LD HL,first` puts the address of the variable `first` in HL, and `(HL)` then means "the byte at the address in HL". You can read it with `LD A,(HL)` and write it with `LD (HL),A`.' },
       { type: 'text', text: 'Because HL is a normal 16-bit number, `INC HL` moves the pointer to the next byte and `DEC HL` moves it back.' },
       {
         type: 'code',
         code: `        ORG 0x8000
-        LD HL,data      ; HL = address of the first byte
+        LD HL,first     ; HL = address of the variable first
         LD A,(HL)       ; A = 10
         INC HL          ; HL now points at the next byte
         ADD A,(HL)      ; A = 10 + 20
         LD (HL),A       ; store 30 over the 20
         HALT
-data:   DB 10,20`,
+first:  DB 10           ; two byte variables, side by side
+second: DB 20`,
       },
       { type: 'text', text: '`INC (HL)` and `DEC (HL)` change the byte HL points at directly, with no need to go through A. `BC` and `DE` can act as pointers too, but only to and from A: `LD A,(DE)` and `LD (BC),A`.' },
       { type: 'tip', text: 'Do not confuse `LD A,(HL)` (the byte HL points at) with `LD A,H` (the top half of the pointer itself).' },
     ],
-    task: ['HL holds the address of a byte, and the byte after it is the next address.', 'Swap those two bytes in memory.', 'You may use A and B as scratch registers.'],
-    starterCode: startWith('HL points at the first of two bytes'),
+    task: ['Create two byte variables side by side: first holding 5 and second holding 9.', 'Use HL as a pointer to swap their values.', 'You may use A and B as scratch registers.'],
+    starterCode: startWith('define first and second with DB after HALT (one straight after the other)'),
     hints: hints(
-      ['Read one byte into A and the other into B before you write anything back.', 'INC HL steps to the second byte and DEC HL steps back.'],
-      'Read both, then write them back the other way round.',
+      ['Put the variables after HALT: first: DB 5, then second: DB 9 on the next line, so they sit in neighbouring bytes.', 'Point HL at first with LD HL,first. Read one byte into A and the other into B before you write anything back.', 'INC HL steps to the second byte and DEC HL steps back.'],
+      'Define both variables, read both, then write them back the other way round.',
       `        ORG 0x8000
-        LD A,(HL)       ; first byte
+        LD HL,first
+        LD A,(HL)       ; first
         INC HL
-        LD B,(HL)       ; second byte
+        LD B,(HL)       ; second
         LD (HL),A       ; second := first
         DEC HL
         LD (HL),B       ; first := second
-        HALT`,
+        HALT
+first:  DB 5
+second: DB 9`,
     ),
     tests: [
-      { name: 'swap 5 and 9', setup: { registers: { HL: 0x9000 }, memory: { 0x9000: [5, 9] } }, expect: { memory: { 0x9000: [9, 5] } } },
-      { name: 'swap 0 and 255', setup: { registers: { HL: 0x9100 }, memory: { 0x9100: [0, 255] } }, expect: { memory: { 0x9100: [255, 0] } } },
+      { name: 'swap 5 and 9', expect: { memory: { first: [9, 5] } } },
+      { name: 'swap 0 and 255', setup: { memory: { first: [0, 255] } }, expect: { memory: { first: [255, 0] } } },
+      { name: 'equal values', setup: { memory: { first: [7, 7] } }, expect: { memory: { first: [7, 7] } } },
     ],
   },
   {
@@ -109,42 +115,42 @@ data:   DB 10,20`,
     module: 'Memory and data types',
     intro: 'An array is just consecutive bytes. The start address plus the index gives you any element.',
     content: [
-      { type: 'text', text: '`DB` can list many values, and they are stored side by side. Element 0 is at the label, element 1 at the label plus 1, and so on. To reach element `i`, put the start in HL, put `i` in DE and use `ADD HL,DE`.' },
+      { type: 'text', text: '`DB` can list many values, and they are stored side by side. Element 0 is at the label, element 1 at the label plus 1, and so on. To reach element `i`, put the start in HL and step along with `INC HL` `i` times. For a bigger or variable index, put `i` in DE and use `ADD HL,DE` instead.' },
       {
         type: 'code',
         code: `        ORG 0x8000
         LD A,2
         CALL 0x1601     ; open the main screen channel
         LD HL,table
-        LD DE,2         ; index 2 is the third element
-        ADD HL,DE       ; HL = table + 2
-        LD A,(HL)
-        LD C,A
-        LD B,0
-        CALL 0x2D2B
-        CALL 0x2DE3     ; prints 30
+        INC HL
+        INC HL          ; HL = table + 2, the third element
+        LD A,(HL)       ; A = the character at index 2
+        RST 0x10        ; print it
         HALT
-table:  DB 10,20,30,40`,
-        prints: '30',
+table:  DB 'A','B','C','D'`,
+        prints: 'C',
       },
-      { type: 'tip', text: 'Programmers count from 0, so the first element is index 0 and an array of 4 elements has indexes 0 to 3. Stepping with `INC HL` is the other way to walk along an array.' },
+      { type: 'tip', text: 'Programmers count from 0, so the first element is index 0 and an array of 4 elements has indexes 0 to 3. `INC HL` is also how you walk along an array one element at a time.' },
     ],
-    task: ['HL holds the address of an array of four bytes.', 'Put element 2 (the third one) into register A.', 'Then store the number 99 in element 3 (the last one).'],
-    starterCode: startWith('HL points at an array of four bytes'),
+    task: ['Create an array called scores holding the four bytes 10, 20, 30 and 40.', 'Put element 2 (the third one) into register A.', 'Then store the number 99 in element 3 (the last one).'],
+    starterCode: startWith('define the array scores with DB after HALT'),
     hints: hints(
-      ['Move HL along the array with INC HL (or ADD HL,DE).', 'Read the third element, then move on one more byte to write the last.'],
-      'Step twice, read, step once more, write.',
+      ['The array is a label followed by DB and four values, placed after HALT. Point HL at it with LD HL,scores.', 'Move HL along the array with INC HL (or ADD HL,DE). Read the third element, then move on one more byte to write the last.'],
+      'Define the array, step twice, read, step once more, write.',
       `        ORG 0x8000
+        LD HL,scores
         INC HL
         INC HL          ; HL points at element 2
         LD A,(HL)       ; read it
         INC HL          ; element 3
         LD (HL),99      ; overwrite the last one
-        HALT`,
+        HALT
+scores: DB 10,20,30,40`,
     ),
     tests: [
-      { name: '1,2,3,4', setup: { registers: { HL: 0x9000 }, memory: { 0x9000: [1, 2, 3, 4] } }, expect: { registers: { A: 3 }, memory: { 0x9000: [1, 2, 3, 99] } } },
-      { name: '9,8,7,6', setup: { registers: { HL: 0x9200 }, memory: { 0x9200: [9, 8, 7, 6] } }, expect: { registers: { A: 7 }, memory: { 0x9200: [9, 8, 7, 99] } } },
+      { name: '10,20,30,40', expect: { registers: { A: 30 }, memory: { scores: [10, 20, 30, 99] } } },
+      { name: '1,2,3,4', setup: { memory: { scores: [1, 2, 3, 4] } }, expect: { registers: { A: 3 }, memory: { scores: [1, 2, 3, 99] } } },
+      { name: '9,8,7,6', setup: { memory: { scores: [9, 8, 7, 6] } }, expect: { registers: { A: 7 }, memory: { scores: [9, 8, 7, 99] } } },
     ],
   },
   {
@@ -163,31 +169,31 @@ table:  DB 10,20,30,40`,
         LD HL,(value)   ; HL = 0x1234
         INC HL          ; HL = 0x1235
         LD (value),HL   ; store it back, low byte first
-        LD A,L
-        LD C,A
-        LD B,0
+        LD BC,(value)   ; read the new value into BC
         CALL 0x2D2B
-        CALL 0x2DE3     ; prints 53, the low byte 0x35
+        CALL 0x2DE3     ; prints 4661, which is 0x1235
         HALT
 value:  DW 0x1234`,
-        prints: '53',
+        prints: '4661',
       },
     ],
-    task: ['A 16-bit word is stored at address 0x9000.', 'Add 1 to it and store the result as a word at address 0x9002. Leave the original where it is.'],
-    starterCode: startWith('the word is stored at address 0x9000'),
+    task: ['Create two words: count holding 255 and total holding 0.', 'Store count + 1 in total. Leave count where it is.'],
+    starterCode: startWith('define the words count and total with DW after HALT'),
     hints: hints(
-      ['LD HL,(0x9000) reads the whole word at once.', 'INC HL adds one to all 16 bits, and LD (0x9002),HL writes it out.'],
-      'Read, add one, write to the new address.',
+      ['Each word is a label followed by DW and its value, placed after HALT.', 'LD HL,(count) reads the whole word at once. INC HL adds one to all 16 bits, and LD (total),HL writes it out.'],
+      'Define both words, then read, add one, write to the other.',
       `        ORG 0x8000
-        LD HL,(0x9000)  ; read the word
+        LD HL,(count)   ; read the word
         INC HL
-        LD (0x9002),HL  ; write the result next door
-        HALT`,
+        LD (total),HL   ; write the result to the other word
+        HALT
+count:  DW 255
+total:  DW 0`,
     ),
     tests: [
-      { name: '0x1234', setup: { memory: { 0x9000: [0x34, 0x12] } }, expect: { memory: { 0x9000: [0x34, 0x12], 0x9002: [0x35, 0x12] } } },
-      { name: '0x00FF carries into the high byte', setup: { memory: { 0x9000: [0xff, 0x00] } }, expect: { memory: { 0x9002: [0x00, 0x01] } } },
-      { name: '0xFFFF wraps to 0', setup: { memory: { 0x9000: [0xff, 0xff] } }, expect: { memory: { 0x9002: [0x00, 0x00] } } },
+      { name: '255 + 1 carries into the high byte', expect: { memory: { count: [0xff, 0x00], total: [0x00, 0x01] } } },
+      { name: '0x1234', setup: { memory: { count: [0x34, 0x12] } }, expect: { memory: { count: [0x34, 0x12], total: [0x35, 0x12] } } },
+      { name: '0xFFFF wraps to 0', setup: { memory: { count: [0xff, 0xff] } }, expect: { memory: { total: [0x00, 0x00] } } },
     ],
   },
   {
@@ -216,27 +222,30 @@ amount: DW 14464, 1         ; 80000 = 1 x 65536 + 14464`,
       },
       { type: 'tip', text: 'Use `ADD` for the low word and `ADC` for the high word, exactly as with bytes.' },
     ],
-    task: ['Two 32-bit numbers are stored as two words each: the first at address 0x9000 and the second at address 0x9004.', 'Add them and store the 32-bit sum at address 0x9008. Leave the originals where they are.'],
-    starterCode: startWith('the numbers are at 0x9000 and 0x9004; put the sum at 0x9008'),
+    task: ['Create two 32-bit numbers, each as two words: first holding 100000 and second holding 200000.', 'Create a third 32-bit number called sum (four bytes, starting at 0) and store first + second in it. Leave first and second where they are.'],
+    starterCode: startWith('define first, second and sum with DW after HALT'),
     hints: hints(
-      ['Treat each number as a low word and a high word. The low word is at the lower address.', 'Add the low words with ADD HL,DE, store HL, then add the high words with ADC HL,DE and store HL again. The loads and stores do not disturb the carry.'],
-      'Low words with ADD, high words with ADC.',
+      ['A 32-bit number is two DW words, low word first. 100000 is 1 x 65536 + 34464, and 200000 is 3 x 65536 + 3392.', 'Add the low words with ADD HL,DE, store HL, then add the high words with ADC HL,DE and store HL again. The loads and stores do not disturb the carry.'],
+      'Define the three numbers, then low words with ADD and high words with ADC.',
       `        ORG 0x8000
-        LD HL,(0x9000)  ; low word of the first number
-        LD DE,(0x9004)  ; low word of the second
+        LD HL,(first)   ; low word of the first number
+        LD DE,(second)  ; low word of the second
         ADD HL,DE       ; may set carry
-        LD (0x9008),HL
-        LD HL,(0x9002)  ; high word of the first
-        LD DE,(0x9006)  ; high word of the second
+        LD (sum),HL
+        LD HL,(first+2) ; high word of the first
+        LD DE,(second+2) ; high word of the second
         ADC HL,DE       ; includes the carry
-        LD (0x900A),HL
-        HALT`,
+        LD (sum+2),HL
+        HALT
+first:  DW 34464, 1     ; 100000
+second: DW 3392, 3      ; 200000
+sum:    DW 0, 0`,
     ),
     tests: [
-      { name: '70000 + 80000', setup: { memory: { 0x9000: [0x70, 0x11, 0x01, 0x00], 0x9004: [0x80, 0x38, 0x01, 0x00] } }, expect: { memory: { 0x9000: [0x70, 0x11, 0x01, 0x00], 0x9004: [0x80, 0x38, 0x01, 0x00], 0x9008: [0xf0, 0x49, 0x02, 0x00] } } },
-      { name: '65535 + 1 carries into the high word', setup: { memory: { 0x9000: [0xff, 0xff, 0x00, 0x00], 0x9004: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { 0x9008: [0x00, 0x00, 0x01, 0x00] } } },
-      { name: '100000 + 200000', setup: { memory: { 0x9000: [0xa0, 0x86, 0x01, 0x00], 0x9004: [0x40, 0x0d, 0x03, 0x00] } }, expect: { memory: { 0x9008: [0xe0, 0x93, 0x04, 0x00] } } },
-      { name: '4294967295 + 1 wraps to 0', setup: { memory: { 0x9000: [0xff, 0xff, 0xff, 0xff], 0x9004: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { 0x9008: [0x00, 0x00, 0x00, 0x00] } } },
+      { name: '100000 + 200000', expect: { memory: { first: [0xa0, 0x86, 0x01, 0x00], second: [0x40, 0x0d, 0x03, 0x00], sum: [0xe0, 0x93, 0x04, 0x00] } } },
+      { name: '70000 + 80000', setup: { memory: { first: [0x70, 0x11, 0x01, 0x00], second: [0x80, 0x38, 0x01, 0x00] } }, expect: { memory: { sum: [0xf0, 0x49, 0x02, 0x00] } } },
+      { name: '65535 + 1 carries into the high word', setup: { memory: { first: [0xff, 0xff, 0x00, 0x00], second: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { sum: [0x00, 0x00, 0x01, 0x00] } } },
+      { name: '4294967295 + 1 wraps to 0', setup: { memory: { first: [0xff, 0xff, 0xff, 0xff], second: [0x01, 0x00, 0x00, 0x00] } }, expect: { memory: { sum: [0x00, 0x00, 0x00, 0x00] } } },
     ],
   },
   {
@@ -263,6 +272,7 @@ HEIGHT  EQU 3
         prints: '12',
       },
       { type: 'tip', text: 'Constants are for values known when you write the program. They are not registers or memory, so they cannot change while it runs.' },
+      { type: 'tip', text: 'The `*` in `WIDTH*HEIGHT` is the assembler multiplying two numbers while it builds your program, and it writes the answer (12) into the instruction. The Z80 has no multiply instruction, so something like `LD A,B*C` does not work: registers only have values when the program runs.' },
     ],
     task: ['Define a constant PRICE equal to 25 and a constant TAX equal to 3.', 'Load register A with PRICE + TAX and register B with PRICE * 2.'],
     starterCode: '        ORG 0x8000\n\n        ; define PRICE and TAX here, then use them\n\n        HALT\n',

@@ -734,9 +734,9 @@ skip:   DEC C
     difficulty: 'intermediate',
     category: 'memory',
     description: 'Two pieces of text are the same only if every character matches and they end together.',
-    task: ['HL points at one zero-terminated string and DE points at another.', 'Put 1 in register B if the two strings are identical, otherwise 0.'],
+    task: ['Create two zero-terminated strings called first and second, each holding the text stone.', 'Put 1 in register B if the two strings are identical, otherwise 0.'],
     explanation: 'Strings in memory end with a zero byte. Equal strings have the same characters and the same length.',
-    starterCode: '        ORG 0x8000\n\n        ; HL = first string, DE = second string (each ends with 0)\n\n        HALT\n',
+    starterCode: '        ORG 0x8000\n\n        ; define first and second (each ends with 0) after HALT\n\n        HALT\n',
     uses: ['strings', 'pointers', 'if-equal'],
     hints: [
       { title: 'Hint 1', body: 'Walk along both strings at once, comparing one character at a time.' },
@@ -747,6 +747,8 @@ skip:   DEC C
         spoiler: true,
         body: 'Compare character pairs until a difference or the terminator.',
         code: `        ORG 0x8000
+        LD HL,first
+        LD DE,second
         LD B,0          ; assume different
 loop:   LD A,(DE)       ; character from the second string
         CP (HL)         ; same as the first?
@@ -758,15 +760,17 @@ loop:   LD A,(DE)       ; character from the second string
         JR loop
 same:   LD B,1
 done:   HALT
+first:  DB "stone",0
+second: DB "stone",0
 `,
       },
     ],
     tests: [
-      { name: 'cat, cat', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 116, 0] } }, expect: { registers: { B: 1 } } },
-      { name: 'cat, car', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 114, 0] } }, expect: { registers: { B: 0 } } },
-      { name: 'cat, ca', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 116, 0], '37120': [99, 97, 0] } }, expect: { registers: { B: 0 } } },
-      { name: 'ca, cat', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [99, 97, 0], '37120': [99, 97, 116, 0] } }, expect: { registers: { B: 0 } } },
-      { name: 'both empty', setup: { registers: { HL: 36864, DE: 37120 }, memory: { '36864': [0], '37120': [0] } }, expect: { registers: { B: 1 } } },
+      { name: 'stone, stone', expect: { registers: { B: 1 } } },
+      { name: 'stone, stove', setup: { memory: { second: [115, 116, 111, 118, 101, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'stone, ston', setup: { memory: { second: [115, 116, 111, 110, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'ston, stone', setup: { memory: { first: [115, 116, 111, 110, 0] } }, expect: { registers: { B: 0 } } },
+      { name: 'both empty', setup: { memory: { first: [0], second: [0] } }, expect: { registers: { B: 1 } } },
     ],
   },
   {
@@ -953,10 +957,10 @@ loop:   ADD A,(HL)      ; add the next number
     difficulty: 'intermediate',
     category: 'memory',
     description: 'A shop stores each item as three bytes: an id, a quantity and a price.',
-    task: ['IX points at the first of several three-byte records, and B holds how many records there are (at least 1).', 'Put the sum of all the quantities (the second byte of each record) into register A. The total fits in a byte.'],
+    task: ['A shop has three stock records, each three bytes: an id, a quantity and a price. Create them in a block called stock: (1, 5, 100), (2, 7, 50) and (3, 0, 10).', 'Put the sum of all the quantities (the second byte of each record) into register A. The total fits in a byte.'],
     explanation: 'Records follow each other in memory, one after another.',
-    starterCode: '        ORG 0x8000\n\n        ; IX = first record (id, quantity, price), B = number of records\n\n        HALT\n',
-    uses: ['index-registers', 'array-loop', 'records'],
+    starterCode: '        ORG 0x8000\n\n        ; define the block stock (id, quantity, price) after HALT\n\n        HALT\n',
+    uses: ['index-registers', 'ix-stepping', 'array-loop', 'records'],
     hints: [
       { title: 'Hint 1', body: 'The quantity is the field at offset 1 of each record.' },
       { title: 'Hint 2', body: 'LD A,(IX+1) style addressing reads a field without moving IX. ADD A,(IX+1) adds it straight into the total.' },
@@ -966,19 +970,25 @@ loop:   ADD A,(HL)      ; add the next number
         spoiler: true,
         body: 'Add field (IX+1), then step IX on by three.',
         code: `        ORG 0x8000
+        LD IX,stock     ; first record
+        LD B,3          ; three records
         XOR A           ; total = 0
         LD DE,3         ; size of a record
 loop:   ADD A,(IX+1)    ; add this record's quantity
         ADD IX,DE       ; on to the next record
         DJNZ loop
         HALT
+stock:  DB 1,5,100
+        DB 2,7,50
+        DB 3,0,10
 `,
       },
     ],
     tests: [
-      { name: 'three records', setup: { registers: { IX: 36864, B: 3 }, memory: { '36864': [1, 5, 100, 2, 7, 50, 3, 0, 10] } }, expect: { registers: { A: 12 } } },
-      { name: 'one record', setup: { registers: { IX: 37120, B: 1 }, memory: { '37120': [9, 200, 1] } }, expect: { registers: { A: 200 } } },
-      { name: 'four of one', setup: { registers: { IX: 37376, B: 4 }, memory: { '37376': [1, 1, 9, 2, 1, 9, 3, 1, 9, 4, 1, 9] } }, expect: { registers: { A: 4 } } },
+      { name: 'the shop stock', expect: { registers: { A: 12 } } },
+      { name: 'one of each', setup: { memory: { stock: [1, 1, 9, 2, 1, 9, 3, 1, 9] } }, expect: { registers: { A: 3 } } },
+      { name: 'empty shelves', setup: { memory: { stock: [1, 0, 9, 2, 0, 9, 3, 0, 9] } }, expect: { registers: { A: 0 } } },
+      { name: 'total of 255', setup: { memory: { stock: [1, 100, 0, 2, 100, 0, 3, 55, 0] } }, expect: { registers: { A: 255 } } },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { START, startWith, hints } from './helpers.js'
+import { startWith, hints } from './helpers.js'
 
 export default [
   {
@@ -56,8 +56,8 @@ after:  LD B,2
 skip:   HALT`,
         prints: '=',
       },
-      { type: 'tip', text: 'Test for the opposite of what you want, then jump over the body. "If A is 5, do X" becomes "if A is not 5, skip X".' },
       { type: 'text', text: '`CP` accepts the same operands as `ADD` and `SUB`: a number, a register, or `(HL)` to compare with the byte in memory that HL points at.' },
+      { type: 'tip', text: 'Test for the opposite of what you want, then jump over the body. "If A is 5, do X" becomes "if A is not 5, skip X".' },
     ],
     task: ['Register B is 0 to start with.', 'If A equals 10, set B to 1. Otherwise leave B alone.'],
     starterCode: startWith('B starts at 0, A contains a number'),
@@ -213,44 +213,5 @@ done:   HALT`,
       { name: 'A = 20', setup: { registers: { A: 20 } }, expect: { registers: { B: 1 } } },
       { name: 'A = 21', setup: { registers: { A: 21 } }, expect: { registers: { B: 0 } } },
     ],
-  },
-  {
-    id: 'wraparound',
-    title: 'Bytes, wraparound and negative numbers',
-    module: 'Control flow',
-    intro: 'A byte has 256 possible values. The processor treats exactly half of them as non-negative numbers (0 to 127) and the other half as negative numbers (-128 to -1).',
-    content: [
-      { type: 'text', text: 'The processor can read a byte in two ways. As unsigned numbers they mean 0 to 255. As signed numbers they are divided exactly in half: 128 values for zero and the positive numbers (0 to 127), and 128 values for the negative numbers (-128 to -1).' },
-      { type: 'text', text: 'Think of the 256 values as a circle, like a clock face. Start at 0 and count up to 127: those are the positive numbers. One more step and you land on 128, which signed arithmetic reads as -128, the most negative number. Keep counting up through 129, 130 ... 254, 255 and the signed meaning climbs from -127 back towards -1. One more step after 255 and you are back at 0.' },
-      { type: 'text', text: 'That last step is called wraparound, like a car odometer rolling over. It is normal behaviour, not an error.' },
-      {
-        type: 'table',
-        head: ['Written as', 'Same byte as', 'Meaning if signed'],
-        rows: [['-1', '255  0xFF', '-1'], ['-2', '254  0xFE', '-2'], ['-128', '128  0x80', '-128'], ['127', '127  0x7F', '127']],
-      },
-      {
-        type: 'code',
-        code: `        ORG 0x8000
-        LD A,-1         ; the assembler turns -1 into 255
-        LD B,255        ; exactly the same byte
-        LD C,-100       ; 156
-        LD A,5
-        NEG             ; A = 0 - A = -5, which is the byte 251
-        HALT`,
-      },
-      { type: 'text', text: '`NEG` negates A: it turns 5 into -5 (251) and -5 back into 5. It is the quick way to change a number\'s sign.' },
-    ],
-    task: ['Put -3 in register A.', 'Put -128 in register B.', 'Put the same byte as 200 in register C, but write it as a negative number.'],
-    starterCode: START,
-    hints: hints(
-      ['LD accepts a negative number directly, for example LD A,-1.', 'A byte of 200 is 256 - 200 = 56 below the top of the range.'],
-      '-3 is 253, -128 is 128, and 200 written negatively is -56.',
-      `        ORG 0x8000
-        LD A,-3         ; 253
-        LD B,-128       ; 128
-        LD C,-56        ; 200
-        HALT`,
-    ),
-    tests: [{ name: 'A = 253, B = 128, C = 200', expect: { registers: { A: 253, B: 128, C: 200 } } }],
   },
 ]
