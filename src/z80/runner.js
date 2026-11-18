@@ -21,7 +21,14 @@ export function runProgram(source, setup = {}, maxSteps) {
     if (addr === undefined) throw new Error(`The test needs a label called "${where}", but your program does not define one`)
     machine.poke(addr, bytes)
   }
-  const result = machine.run(maxSteps)
+  let result
+  try {
+    result = machine.run(maxSteps)
+  } catch (err) {
+    // the program died part-way (e.g. an unsupported port): keep what it had already printed
+    err.output = machine.output
+    throw err
+  }
   return { machine, program, ...result, output: machine.output }
 }
 

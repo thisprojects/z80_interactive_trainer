@@ -9,6 +9,7 @@ import EditorPane from './EditorPane.jsx'
 import CheatSheet from './CheatSheet.jsx'
 import ItemMenu from './ItemMenu.jsx'
 import LessonPane from './LessonPane.jsx'
+import SandboxPane from './SandboxPane.jsx'
 
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, onChange }) => (
@@ -320,5 +321,65 @@ describe('InstructionPane done badge', () => {
   it('shows a Done badge for a finished challenge', () => {
     render(<InstructionPane challenge={challenge} done />)
     expect(screen.getByText('✓ Done')).toBeInTheDocument()
+  })
+})
+
+describe('NavBar sandbox tab', () => {
+  it('offers a Sandbox tab and hides the item menu and cheat sheet button there', async () => {
+    const onTabChange = vi.fn()
+    const props = { items: [{ id: 'a', title: 'Alpha' }], selectedId: 'a', onSelect: vi.fn(), onRun: vi.fn(), onReset: vi.fn(), onToggleCheatSheet: vi.fn(), onTabChange }
+    const { rerender } = render(<NavBar {...props} tab="challenges" />)
+    expect(screen.getByRole('button', { name: 'Cheat sheet' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: 'Sandbox' }))
+    expect(onTabChange).toHaveBeenCalledWith('sandbox')
+    rerender(<NavBar {...props} tab="sandbox" />)
+    expect(screen.getByRole('tab', { name: 'Sandbox' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('button', { name: 'Cheat sheet' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Select challenge/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run' })).toBeInTheDocument()
+  })
+})
+
+describe('CheatSheet embedded', () => {
+  it('renders as a section, not a page landmark, and keeps its content', () => {
+    const { container } = render(<CheatSheet embedded />)
+    expect(container.querySelector('main')).toBeNull()
+    expect(screen.getByRole('region', { name: 'Cheat sheet' })).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Counted loop with DJNZ' })).toBeInTheDocument()
+  })
+})
+
+describe('SandboxPane', () => {
+  const registers = { A: 0x12, BC: 0x3456, DE: 0x789a, HL: 0xbcde }
+  const show = (result) => render(<SandboxPane code="X" onChange={vi.fn()} result={result} editorKey="k" />)
+
+  it('prompts to run before there is a result', () => {
+    show(null)
+    expect(screen.getByText(/Press Run/)).toBeInTheDocument()
+    expect(screen.getByLabelText('editor')).toHaveValue('X')
+  })
+
+  it('shows an error in an alert instead of the screen', () => {
+    show({ error: 'Line 1: nope' })
+    expect(screen.getByRole('alert')).toHaveTextContent('Line 1: nope')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('shows output printed before an error above the error', () => {
+    show({ error: 'boom', output: 'Hi' })
+    expect(screen.getByRole('img', { name: 'Screen output: Hi' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('boom')
+  })
+
+  it('shows output, status and registers, including the timed-out and cut-short notes', () => {
+    const { unmount } = show({ output: 'Hi', timedOut: false, truncated: false, registers })
+    expect(screen.getByRole('img', { name: 'Screen output: Hi' })).toBeInTheDocument()
+    expect(screen.getByText(/Finished/)).toBeInTheDocument()
+    expect(screen.getByText(/A=0x12 BC=0x3456 DE=0x789A HL=0xBCDE/)).toBeInTheDocument()
+    expect(screen.queryByText(/cut short/)).not.toBeInTheDocument()
+    unmount()
+    show({ output: 'Hi', timedOut: true, truncated: true, registers })
+    expect(screen.getByText(/ran too long/)).toBeInTheDocument()
+    expect(screen.getByText(/cut short/)).toBeInTheDocument()
   })
 })

@@ -85,6 +85,42 @@ export function useActivity(items, keys = CHALLENGE_KEYS) {
   return { item, index, code, setCode, select, reset, result, setResult, resetCount }
 }
 
+const SANDBOX_KEY = 'z80_trainer:sandbox:code'
+
+export const SANDBOX_STARTER = `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+
+        LD A,'H'
+        RST 0x10        ; print the character in A
+        LD A,'i'
+        RST 0x10
+
+        HALT
+`
+
+// The sandbox: one free-form program, remembered in this browser, and the result of its last run.
+export function useSandbox() {
+  const [code, setCodeState] = useState(() => readStore(SANDBOX_KEY) ?? SANDBOX_STARTER)
+  const [result, setResult] = useState(null)
+  const [resetCount, setResetCount] = useState(0) // bumped by Reset so the editor is rebuilt from the starter code
+
+  const setCode = useCallback((value) => {
+    setCodeState(value)
+    setResult(null) // an old run no longer describes the edited code
+    writeStore(SANDBOX_KEY, value)
+  }, [])
+
+  const reset = useCallback(() => {
+    setCodeState(SANDBOX_STARTER)
+    setResetCount((n) => n + 1)
+    removeStore(SANDBOX_KEY)
+    setResult(null)
+  }, [])
+
+  return { code, setCode, reset, result, setResult, resetCount }
+}
+
 const DONE_KEY = 'z80_trainer:done'
 
 function readDone() {
@@ -111,9 +147,9 @@ export function useProgress() {
 }
 
 const TAB_KEY = 'z80_trainer:tab'
-export const TABS = ['learn', 'challenges']
+export const TABS = ['learn', 'challenges', 'sandbox']
 
-// Which group is showing: 'learn' (lessons) or 'challenges'. Remembered across visits.
+// Which group is showing: 'learn' (lessons), 'challenges' or 'sandbox'. Remembered across visits.
 export function useTab() {
   const [tab, setTabState] = useState(() => {
     const saved = readStore(TAB_KEY)

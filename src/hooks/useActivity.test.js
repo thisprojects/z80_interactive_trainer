@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useActivity as useChallenge, readStore, writeStore, useProgress, useTab, LESSON_KEYS, migrateLegacyWork } from './useActivity.js'
+import { useActivity as useChallenge, readStore, writeStore, useProgress, useTab, useSandbox, SANDBOX_STARTER, LESSON_KEYS, migrateLegacyWork } from './useActivity.js'
 
 const list = [
   { id: 'a', starterCode: 'A start' },
@@ -118,6 +118,22 @@ describe('useTab', () => {
     expect(renderHook(() => useTab()).result.current[0]).toBe('challenges')
     localStorage.setItem('z80_trainer:tab', 'nonsense')
     expect(renderHook(() => useTab()).result.current[0]).toBe('learn')
+  })
+})
+
+describe('useSandbox', () => {
+  it('starts from the starter program, remembers edits, and Reset forgets them', () => {
+    localStorage.removeItem('z80_trainer:sandbox:code')
+    const first = renderHook(() => useSandbox())
+    expect(first.result.current.code).toBe(SANDBOX_STARTER)
+    act(() => first.result.current.setResult({ output: 'x' }))
+    act(() => first.result.current.setCode('LD A,1'))
+    expect(first.result.current.result).toBeNull() // an edit clears the old run
+    expect(renderHook(() => useSandbox()).result.current.code).toBe('LD A,1')
+    act(() => first.result.current.reset())
+    expect(first.result.current.code).toBe(SANDBOX_STARTER)
+    expect(first.result.current.resetCount).toBe(1)
+    expect(renderHook(() => useSandbox()).result.current.code).toBe(SANDBOX_STARTER)
   })
 })
 

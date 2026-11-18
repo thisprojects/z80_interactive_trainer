@@ -1,16 +1,16 @@
 import ItemMenu from './ItemMenu.jsx'
 
-const TAB_LABELS = { learn: 'Learn', challenges: 'Challenges' }
+const TAB_LABELS = { learn: 'Learn', challenges: 'Challenges', sandbox: 'Sandbox' }
 
 export default function NavBar({
   tab = 'challenges', onTabChange, items, selectedId, onSelect, done, onRun, onReset,
   showCheatSheet = false, onToggleCheatSheet,
 }) {
   return (
-    <nav className="relative z-40 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-700 bg-slate-900 px-4 py-2">
-      <h1 className="whitespace-nowrap text-lg font-bold tracking-tight text-emerald-400">Z80 Trainer</h1>
+    <nav className="relative z-40 flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-700 bg-slate-900 px-2 py-2 sm:gap-x-4 sm:px-4">
+      <h1 className="whitespace-nowrap text-base font-bold tracking-tight text-emerald-400 sm:text-lg">Z80 Trainer</h1>
       {onTabChange && (
-        <div role="tablist" aria-label="Section" className="flex overflow-hidden rounded border border-slate-600 text-sm">
+        <div role="tablist" aria-label="Section" className="flex overflow-hidden rounded border border-slate-600 text-xs sm:text-sm">
           {Object.entries(TAB_LABELS).map(([id, label]) => {
             const selected = !showCheatSheet && tab === id
             return (
@@ -20,7 +20,7 @@ export default function NavBar({
                 role="tab"
                 aria-selected={selected}
                 onClick={() => onTabChange(id)}
-                className={`cursor-pointer px-3 py-1 ${selected ? 'bg-emerald-700 font-semibold text-white' : 'text-slate-200 hover:bg-slate-800'}`}
+                className={`cursor-pointer px-2 py-1 sm:px-3 ${selected ? 'bg-emerald-700 font-semibold text-white' : 'text-slate-200 hover:bg-slate-800'}`}
               >
                 {label}
               </button>
@@ -28,7 +28,7 @@ export default function NavBar({
           })}
         </div>
       )}
-      {!showCheatSheet && (
+      {!showCheatSheet && tab !== 'sandbox' && (
         <ItemMenu
           items={items}
           selectedId={selectedId}
@@ -38,7 +38,7 @@ export default function NavBar({
         />
       )}
       <div className="ml-auto flex gap-2">
-        {onToggleCheatSheet && (
+        {onToggleCheatSheet && tab !== 'sandbox' && (
           <button
             type="button"
             onClick={onToggleCheatSheet}

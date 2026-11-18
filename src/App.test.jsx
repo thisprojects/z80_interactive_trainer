@@ -177,3 +177,71 @@ describe('App: editor', () => {
     expect(screen.getByLabelText('editor')).toHaveValue(lessons[0].starterCode)
   })
 })
+
+describe('App: sandbox', () => {
+  const openSandbox = () => userEvent.click(screen.getByRole('tab', { name: 'Sandbox' }))
+  const type = (value) => fireEvent.change(screen.getByLabelText('editor'), { target: { value } })
+
+  it('shows the cheat sheet on the left, the editor on the right and an output box under it', async () => {
+    const { container } = render(<App />)
+    await openSandbox()
+    const main = container.querySelector('main')
+    expect(main.children[0]).toContainElement(screen.getByRole('region', { name: 'Cheat sheet' }))
+    expect(main.children[1]).toContainElement(screen.getByLabelText('editor'))
+    const output = within(main.children[1]).getByRole('region', { name: 'Output' })
+    expect(output).toHaveTextContent('Press Run')
+    expect(screen.queryByRole('button', { name: /Select/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cheat sheet' })).not.toBeInTheDocument()
+  })
+
+  it('runs the starter program and shows what RST 0x10 printed', async () => {
+    render(<App />)
+    await openSandbox()
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(screen.getByRole('img', { name: 'Screen output: Hi' })).toBeInTheDocument()
+    expect(screen.getByText(/Finished/)).toBeInTheDocument()
+  })
+
+  it('shows numbers printed by the ROM print routines', async () => {
+    render(<App />)
+    await openSandbox()
+    type('  ORG 0x8000\n  LD A,2\n  CALL 0x1601\n  LD BC,1234\n  CALL 0x2D2B\n  CALL 0x2DE3\n  HALT\n')
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(screen.getByRole('img', { name: 'Screen output: 1234' })).toBeInTheDocument()
+  })
+
+  it('reports assembly errors, endless loops and Reset', async () => {
+    render(<App />)
+    await openSandbox()
+    type('  BOGUS')
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/Unknown instruction/)
+    type('  ORG 0x8000\nloop: JP loop\n')
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(screen.getByText(/ran too long/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(screen.getByLabelText('editor').value).toContain("LD A,'H'")
+    expect(screen.getByText(/Press Run/)).toBeInTheDocument()
+  })
+
+  it('still shows what was printed before the program failed, with the error', async () => {
+    render(<App />)
+    await openSandbox()
+    type("  ORG 0x8000\n  LD A,2\n  CALL 0x1601\n  LD A,'H'\n  RST 0x10\n  LD A,3\n  CALL 0x1601\n  HALT\n")
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(screen.getByRole('img', { name: 'Screen output: H' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('runs with Ctrl+Enter and remembers the code after a reload', async () => {
+    const { unmount } = render(<App />)
+    await openSandbox()
+    type("  ORG 0x8000\n  LD A,2\n  CALL 0x1601\n  LD A,'Z'\n  RST 0x10\n  HALT\n")
+    fireEvent.keyDown(screen.getByLabelText('editor'), { key: 'Enter', ctrlKey: true })
+    expect(screen.getByRole('img', { name: 'Screen output: Z' })).toBeInTheDocument()
+    unmount()
+    render(<App />)
+    expect(screen.getByRole('tab', { name: 'Sandbox' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByLabelText('editor').value).toContain("LD A,'Z'")
+  })
+})

@@ -361,3 +361,69 @@ test.describe('cheat sheet', () => {
     await expect(editor(page)).toBeVisible()
   })
 })
+
+test.describe('sandbox', () => {
+  test('shows the cheat sheet beside the editor and prints program output below it', async ({ page, isMobile }) => {
+    await page.getByRole('tab', { name: 'Sandbox' }).click()
+    const sheet = page.getByRole('region', { name: 'Cheat sheet' })
+    const code = page.getByRole('region', { name: 'Code editor' })
+    const output = page.getByRole('region', { name: 'Output' })
+    await expect(sheet).toBeVisible()
+    await expect(code).toBeVisible()
+    const [s, c, o] = await Promise.all([sheet.boundingBox(), code.boundingBox(), output.boundingBox()])
+    if (!isMobile) expect(s.x).toBeLessThan(c.x) // cheat sheet on the left
+    expect(o.y).toBeGreaterThan(c.y) // output under the editor
+    await page.getByRole('button', { name: 'Run' }).click()
+    await expect(page.getByRole('img', { name: 'Screen output: Hi' })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    await page.reload()
+    await expect(page.getByRole('tab', { name: 'Sandbox' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+test.describe('sandbox scrolling', () => {
+  // A long program makes the editor taller than its pane, so it has to scroll inside the pane.
+  const longProgram = `        ORG 0x8000\n${'        NOP\n'.repeat(120)}        HALT\n`
+
+  async function pageIsPinned(page) {
+    const scroll = await page.evaluate(() => ({
+      doc: document.documentElement.scrollTop + document.body.scrollTop,
+      overflow: document.documentElement.scrollHeight - window.innerHeight,
+    }))
+    expect(scroll.doc).toBe(0)
+    expect(scroll.overflow).toBeLessThanOrEqual(0)
+    const nav = await page.getByRole('navigation').boundingBox()
+    expect(nav.y).toBeGreaterThanOrEqual(0)
+    const output = await page.getByRole('region', { name: 'Output' }).boundingBox()
+    const viewport = page.viewportSize()
+    expect(output.y + output.height).toBeLessThanOrEqual(viewport.height + 1)
+  }
+
+  test('scrolling the editor pane keeps the nav bar and output box on screen', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'wheel scrolling is a desktop interaction')
+    await page.getByRole('tab', { name: 'Sandbox' }).click()
+    await setCode(page, longProgram)
+    await run(page)
+    const code = page.getByRole('region', { name: 'Code editor' })
+    const box = await code.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.wheel(0, 3000)
+    await expect(page.getByRole('img', { name: /Screen output/ })).toBeVisible()
+    await pageIsPinned(page)
+    // the editor itself did scroll (the pane or CodeMirror's own scroller)
+    const scrolled = await page.evaluate(() => [...document.querySelectorAll('section, .cm-scroller')].some((e) => e.scrollTop > 0))
+    expect(scrolled).toBe(true)
+  })
+
+  test('scrolling the cheat sheet pane keeps the page in place', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'wheel scrolling is a desktop interaction')
+    await page.getByRole('tab', { name: 'Sandbox' }).click()
+    const sheet = page.getByRole('region', { name: 'Cheat sheet' })
+    const box = await sheet.boundingBox()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.wheel(0, 3000)
+    await expect.poll(() => sheet.evaluate((e) => e.scrollTop)).toBeGreaterThan(0)
+    await pageIsPinned(page)
+  })
+})

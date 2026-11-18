@@ -4,6 +4,13 @@ import { runProgram, runChallenge } from './runner.js'
 const challenge = (tests) => ({ tests })
 
 describe('runProgram', () => {
+  it('keeps the output already printed when the program dies part-way', () => {
+    const src = "ORG 0x8000\nLD A,2\nCALL 0x1601\nLD A,'H'\nRST 0x10\nLD A,3\nCALL 0x1601\nHALT"
+    let caught
+    try { runProgram(src) } catch (err) { caught = err }
+    expect(caught).toBeInstanceOf(Error)
+    expect(caught.output).toBe('H')
+  })
   it('runs with setup registers and memory', () => {
     const r = runProgram('LD A,(0x9000)\nADD A,B\nHALT', { registers: { B: 2 }, memory: { 0x9000: [40] } })
     expect(r.machine.getRegisters().A).toBe(42)
