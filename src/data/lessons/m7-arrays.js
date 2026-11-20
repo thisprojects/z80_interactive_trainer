@@ -52,6 +52,60 @@ values: DB 3,5,7,9,11`,
     ],
   },
   {
+    id: 'array-terminator',
+    title: 'Ending an array with 0',
+    module: 'Arrays and strings',
+    intro: 'Put a 0 after the last element, and a loop can find the end by itself, with no counter.',
+    content: [
+      { type: 'text', text: 'A counter in B works when you know the length in advance. If you add or remove an element you must remember to change the count too. Another way is to end the array with a 0 byte, a "terminator", so the data marks its own end. The loop reads each element and tests it. If it is 0 the array is finished; otherwise it works on the element and moves on.' },
+      { type: 'text', text: '`OR A` does not change A, but it sets the Zero flag when A is 0. So `LD A,(HL)` then `OR A` then `JR Z,done` stops the loop at the terminator. The catch is that 0 can no longer be a real element, because it would end the array early.' },
+      { type: 'compare', high: 'i = 0\nwhile list[i] != 0:\n    show(list[i])\n    i += 1', z80: '        LD HL,list\nnext:   LD A,(HL)\n        OR A\n        JR Z,done\n        ADD A,\'0\'\n        RST 0x10\n        INC HL\n        JR next\ndone:\nlist:   DB 7,8,9,0' },
+      {
+        type: 'code',
+        code: `        ORG 0x8000
+        LD A,2
+        CALL 0x1601     ; open the main screen channel
+        LD HL,list
+next:   LD A,(HL)       ; read an element
+        OR A            ; sets Zero if it is 0
+        JR Z,done       ; 0 is the end of the array
+        ADD A,'0'       ; turn the digit into its character
+        RST 0x10        ; print it
+        INC HL          ; move to the next one
+        JR next
+done:   HALT
+list:   DB 7,8,9,0      ; the final 0 marks the end`,
+        prints: '789',
+      },
+      { type: 'tip', text: 'Now you can add or remove elements and the loop needs no change. Just keep the 0 at the end. Forget it and the loop runs on into whatever bytes follow.' },
+    ],
+    task: ['Create an array called nums holding the bytes 4, 9, 15 and 2, followed by a 0 to end it.', 'Add up all the elements, without counting them, and leave the total in register D.'],
+    starterCode: startWith('define nums with DB after HALT, ending in 0'),
+    hints: hints(
+      ['Define nums after HALT with DB 4,9,15,2,0. The last 0 is not part of the sum; it marks the end.', 'Keep the running total in D, starting at 0. Loop: read an element into A, use OR A and JR Z to stop at the terminator, otherwise add it to D and INC HL.', 'ADD A,D leaves the sum in A, so copy it back into D with LD D,A before the next element.'],
+      'Clear D, then loop until the terminator, adding each element to D.',
+      `        ORG 0x8000
+        LD HL,nums
+        LD D,0          ; running total
+next:   LD A,(HL)       ; read an element
+        OR A            ; is it the 0 terminator?
+        JR Z,done
+        ADD A,D         ; add the total so far
+        LD D,A          ; keep the new total
+        INC HL
+        JR next
+done:   HALT
+nums:   DB 4,9,15,2,0`,
+    ),
+    tests: [
+      { name: '4,9,15,2 adds up to 30', expect: { registers: { D: 30 } } },
+      { name: 'an empty array', setup: { memory: { nums: [0] } }, expect: { registers: { D: 0 } } },
+      { name: 'a single element', setup: { memory: { nums: [7, 0] } }, expect: { registers: { D: 7 } } },
+      { name: 'a longer array', setup: { memory: { nums: [1, 2, 3, 4, 5, 6, 7, 8, 0] } }, expect: { registers: { D: 36 } } },
+      { name: 'stops at the first 0', setup: { memory: { nums: [5, 5, 0, 9, 9, 0] } }, expect: { registers: { D: 10 } } },
+    ],
+  },
+  {
     id: 'strings',
     title: 'Strings: text in memory',
     module: 'Arrays and strings',
