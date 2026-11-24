@@ -5,7 +5,6 @@ export default [
     id: 'registers-and-ld',
     title: 'Registers and LD',
     module: 'Values and registers',
-    intro: 'A program keeps its working values in registers. You will store numbers in them with `LD`.',
     content: [
       { type: 'text', text: 'In a high-level language you make a variable and give it a value. The Z80 does the same job with a few tiny, very fast storage boxes called registers, each with a fixed name. The 8-bit ones are `A B C D E H L`, and each holds a whole number from 0 to 255.' },
       { type: 'compare', high: 'b = 7', z80: 'LD B,7' },
@@ -74,14 +73,15 @@ export default [
       { type: 'text', text: 'You can write a number whichever way is clearest. The assembler turns all of these into the same byte.' },
       {
         type: 'table',
-        head: ['Form', 'Written as', 'Value'],
+        head: ['Form', 'How to mark it', 'Example: 65'],
         rows: [
-          ['Decimal', '65', '65'],
-          ['Hexadecimal', '0x41  $41  41h', '65'],
-          ['Binary', '0b01000001  %01000001', '65'],
-          ['Character', "'A'", '65'],
+          ['Decimal', 'nothing, just the digits', '65'],
+          ['Hexadecimal', 'start with 0x or $, or end with h', '0x41   $41   41h'],
+          ['Binary', 'start with 0b or %', '0b01000001   %01000001'],
+          ['Character', 'one character in single quotes', "'A'"],
         ],
       },
+      { type: 'text', text: 'The mark is what tells the assembler which kind of number it is reading. Without it, `41` means decimal 41, not hex, and `10` is ten, not two. So `0x41` and `$41` are hex, `0b101` and `%101` are binary, and `101` on its own is one hundred and one. Pick one style and stick with it; this course mostly uses `0x` for hex and `%` for binary.' },
       {
         type: 'code',
         code: `        ORG 0x8000
@@ -94,7 +94,7 @@ export default [
       { type: 'text', text: 'Hexadecimal is popular because one byte is always exactly two hex digits (`0x00` to `0xFF`). Binary shows the individual bits, which matters when you work with flags.' },
       { type: 'tip', text: 'A character is just a number: computers store the letter A as 65. That is why text and numbers mix freely in assembly.' },
     ],
-    task: ['Put the hexadecimal number 7F in register A.', 'Put the binary number 10101010 in register B.', 'Put the character code for the letter Q in register C.'],
+    task: ['Put the hexadecimal number 7F in register A.', 'Put the binary number 10101010 in register B.', 'Put the character code for the letter Q in register C. Its ASCII code is 81 (0x51), so you can write the number or the character.'],
     starterCode: START,
     hints: hints(
       ['A hexadecimal number starts with 0x (or $), a binary number with 0b (or %), and a character goes in quotes.', 'You can write the number directly in the LD instruction in whichever form you like.'],

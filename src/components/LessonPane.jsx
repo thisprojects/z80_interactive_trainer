@@ -80,7 +80,7 @@ export default function LessonPane({ lesson, index, total, done, onPrevious, onN
             {done && <span className="rounded bg-emerald-900 px-2 py-0.5 text-emerald-300">✓ Done</span>}
           </div>
           <h2 className="text-xl font-bold text-slate-100">{lesson.title}</h2>
-          <p className="mt-2 text-sm text-slate-300"><Inline text={lesson.intro} /></p>
+          {lesson.intro && <p className="mt-2 text-sm text-slate-300"><Inline text={lesson.intro} /></p>}
         </header>
 
         <section aria-label="Lesson content" className="space-y-3">

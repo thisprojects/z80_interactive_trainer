@@ -18,7 +18,7 @@ describe('validateLesson', () => {
     l.content = []
     const errors = validateLesson(l).join('\n')
     expect(errors).toContain('module must be')
-    expect(errors).toContain('intro must be')
+    expect(errors).toContain('intro, when given, must be')
     expect(errors).toContain('content must be a non-empty array')
   })
   it('reports bad content blocks', () => {

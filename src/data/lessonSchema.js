@@ -9,7 +9,7 @@
 //   id:          'unique-slug',                // lowercase letters, digits, dashes; unique across lessons AND challenges
 //   title:       'Human readable title',
 //   module:      'Values and registers',       // the section this lesson belongs to (lessons are grouped by it)
-//   intro:       'One sentence on what you will learn',
+//   intro:       'One sentence on what you will learn' (optional),
 //   content: [                                  // the teaching, shown in order
 //     { type: 'text', text: 'Paragraph. `inline code` is allowed.' },
 //     { type: 'code', code: '...', caption: 'optional', prints: 'optional output' },   // a complete program: it must run to HALT
@@ -55,9 +55,8 @@ export function validateLesson(l) {
   const errors = []
   if (!l || typeof l !== 'object') return ['lesson must be an object']
   validateTaskFields(l, errors)
-  for (const key of ['module', 'intro']) {
-    if (!isString(l[key])) errors.push(`${key} must be a non-empty string`)
-  }
+  if (!isString(l.module)) errors.push('module must be a non-empty string')
+  if (l.intro !== undefined && !isString(l.intro)) errors.push('intro, when given, must be a non-empty string')
   if (!Array.isArray(l.content) || l.content.length === 0) errors.push('content must be a non-empty array')
   else {
     l.content.forEach((b, i) => validateBlock(b, i, errors))

@@ -57,7 +57,7 @@ function formsOfText(text) {
 function taughtBy(lesson) {
   const found = new Set()
   const add = (set) => set.forEach((m) => found.add(m))
-  add(formsOfText(lesson.intro))
+  add(formsOfText(lesson.intro ?? ''))
   for (const b of lesson.content) {
     if (b.type === 'code') add(formsOfCode(b.code))
     if (b.type === 'compare') add(formsOfCode(b.z80))
