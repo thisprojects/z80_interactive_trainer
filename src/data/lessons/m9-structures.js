@@ -108,43 +108,43 @@ point:  DB 3,4,0        ; x, y, total`,
   },
   {
     id: 'ix-stepping',
-    title: 'Stepping IX through a list of records',
+    title: 'Stepping IX through an array',
     module: 'Data structures',
-    intro: 'Move IX on by the record size to visit each record in a list.',
+    intro: 'Move IX on by a fixed step to work along an array.',
     content: [
-      { type: 'text', text: '`IX` can itself be moved. `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, which is how you step from one record to the next in a list of records. Put the record size in DE first.' },
+      { type: 'text', text: '`IX` can itself be moved. `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, so you can jump along an array in steps of any size. Put the step in DE first. `(IX+d)` is then counted from wherever IX has got to.' },
       {
         type: 'code',
         code: `        ORG 0x8000
         LD A,2
         CALL 0x1601     ; open the main screen channel
-        LD IX,players
-        LD DE,3         ; each record is three bytes
-        ADD IX,DE       ; IX now points at the second record
-        LD A,(IX+2)     ; its third field
+        LD IX,values    ; IX points at the first byte
+        LD DE,3         ; step on by three bytes
+        ADD IX,DE       ; IX now points at the 4th byte (the 4)
+        LD A,(IX+2)     ; two bytes further on: the 6th byte
         LD C,A
         LD B,0
         CALL 0x2D2B
         CALL 0x2DE3     ; prints 6
         HALT
-players: DB 1,2,3,4,5,6`,
+values:  DB 1,2,3,4,5,6   ; a six-byte array`,
         prints: '6',
       },
-      { type: 'tip', text: 'Loop over a list of records with a counter in B: do the work with `(IX+d)`, add the record size to IX, and let `DJNZ` count the records.' },
+      { type: 'tip', text: 'Loop along an array with a counter in B: do the work with `(IX+d)`, add the step to IX, and let `DJNZ` count the passes.' },
     ],
-    task: ['Create a list called items of three records, each three bytes: a, b and total. The records are (1, 2, 0), (3, 4, 0) and (5, 6, 0).', 'In every record set total (offset 2) to a + b.'],
-    starterCode: startWith('define the list items with DB after HALT, then use IX on it'),
+    task: ['Create a nine-byte array called items holding 1, 2, 0, 3, 4, 0, 5, 6, 0.', 'Replace each 0 with the sum of the two numbers before it, so the array ends up as 1, 2, 3, 3, 4, 7, 5, 6, 11.'],
+    starterCode: startWith('define the array items with DB after HALT, then use IX on it'),
     hints: hints(
-      ['Define items after HALT: nine DB values, three records of a, b and total.', 'Point IX at items, put the number of records in B and the record size in DE. Each pass reads a and b, writes total, then moves IX on to the next record.'],
-      'A loop of three passes, each filling in one total and stepping IX on by three.',
+      ['Define items after HALT with nine DB values.', 'Point IX at items, put the number of passes in B and the step in DE. Each pass reads (IX+0) and (IX+1), writes the sum to (IX+2), then moves IX on by the step.'],
+      'A loop of three passes, each writing one sum and stepping IX on by three.',
       `        ORG 0x8000
         LD IX,items
-        LD B,3          ; three records
-        LD DE,3         ; size of a record
-loop:   LD A,(IX+0)     ; a
-        ADD A,(IX+1)    ; + b
-        LD (IX+2),A     ; total
-        ADD IX,DE       ; on to the next record
+        LD B,3          ; three passes
+        LD DE,3         ; step of three bytes
+loop:   LD A,(IX+0)     ; first byte
+        ADD A,(IX+1)    ; + the next
+        LD (IX+2),A     ; store the sum two places on
+        ADD IX,DE       ; on by the step
         DJNZ loop
         HALT
 items:  DB 1,2,0
@@ -152,8 +152,8 @@ items:  DB 1,2,0
         DB 5,6,0`,
     ),
     tests: [
-      { name: 'the given records', expect: { memory: { items: [1, 2, 3, 3, 4, 7, 5, 6, 11] } } },
-      { name: 'other values and stale totals', setup: { memory: { items: [10, 20, 99, 0, 0, 5, 100, 55, 7] } }, expect: { memory: { items: [10, 20, 30, 0, 0, 0, 100, 55, 155] } } },
+      { name: 'the given values', expect: { memory: { items: [1, 2, 3, 3, 4, 7, 5, 6, 11] } } },
+      { name: 'other values and stale sums', setup: { memory: { items: [10, 20, 99, 0, 0, 5, 100, 55, 7] } }, expect: { memory: { items: [10, 20, 30, 0, 0, 0, 100, 55, 155] } } },
     ],
   },
   {

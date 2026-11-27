@@ -5,7 +5,6 @@ export default [
     id: 'adding',
     title: 'Adding numbers',
     module: 'Arithmetic and bits',
-    intro: 'Arithmetic is done in the accumulator, register A, with `ADD`.',
     content: [
       { type: 'text', text: 'Most arithmetic works on register A, the accumulator. `ADD A,x` adds `x` to A and leaves the answer in A. The `x` can be another register or a plain number.' },
       { type: 'compare', high: 'a = a + b', z80: 'ADD A,B' },
