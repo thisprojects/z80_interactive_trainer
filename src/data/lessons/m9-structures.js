@@ -108,52 +108,61 @@ point:  DB 3,4,0        ; x, y, total`,
   },
   {
     id: 'ix-stepping',
-    title: 'Stepping IX through an array',
+    title: 'Stepping IX through a list of records',
     module: 'Data structures',
-    intro: 'Move IX on by a fixed step to work along an array.',
+    intro: 'Move IX on by the record size to visit each record in a list.',
     content: [
-      { type: 'text', text: '`IX` can itself be moved. `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, so you can jump along an array in steps of any size. Put the step in DE first. `(IX+d)` is then counted from wherever IX has got to.' },
+      { type: 'text', text: 'So far you have used one record. A program often needs many of the same kind, such as several players. In a high-level language that is an array of objects. On the Z80 it is the same record written out again and again, with no gaps between them, so the second record starts exactly one record size after the first:' },
+      { type: 'compare', high: 'players = [\n  {health: 100, ammo: 5, score: 20},\n  {health: 80,  ammo: 3, score: 40},\n]', z80: 'players: DB 100,5,20   ; player 0\n         DB 80,3,40    ; player 1' },
+      { type: 'text', text: 'Each record here is three bytes, so player 0 starts at `players`, player 1 at `players+3`, player 2 at `players+6`, and so on. The field offsets (health 0, ammo 1, score 2) are the same inside every record. To reach player 1 you move `IX` on by the record size: `INC IX` steps one byte, and `ADD IX,DE` adds a 16-bit amount, so put the record size in DE first. Then `(IX+SCORE)` is the score of that player.' },
       {
         type: 'code',
-        code: `        ORG 0x8000
+        code: `SIZE    EQU 3           ; bytes in one record
+SCORE   EQU 2           ; offset of the score field
+        ORG 0x8000
         LD A,2
         CALL 0x1601     ; open the main screen channel
-        LD IX,values    ; IX points at the first byte
-        LD DE,3         ; step on by three bytes
-        ADD IX,DE       ; IX now points at the 4th byte (the 4)
-        LD A,(IX+2)     ; two bytes further on: the 6th byte
+        LD IX,players
+        LD DE,SIZE
+        ADD IX,DE       ; IX now points at the second player
+        LD A,(IX+SCORE)
         LD C,A
         LD B,0
         CALL 0x2D2B
-        CALL 0x2DE3     ; prints 6
+        CALL 0x2DE3     ; prints 40
         HALT
-values:  DB 1,2,3,4,5,6   ; a six-byte array`,
-        prints: '6',
+players: DB 100,5,20    ; health, ammo, score
+         DB 80,3,40`,
+        prints: '40',
       },
-      { type: 'tip', text: 'Loop along an array with a counter in B: do the work with `(IX+d)`, add the step to IX, and let `DJNZ` count the passes.' },
+      { type: 'tip', text: 'Loop over a list of records with a counter in B: do the work with `(IX+field)`, add the record size to IX, and let `DJNZ` count the records.' },
     ],
-    task: ['Create a nine-byte array called items holding 1, 2, 0, 3, 4, 0, 5, 6, 0.', 'Replace each 0 with the sum of the two numbers before it, so the array ends up as 1, 2, 3, 3, 4, 7, 5, 6, 11.'],
-    starterCode: startWith('define the array items with DB after HALT, then use IX on it'),
+    task: ['Create a list called players of three records, each three bytes: health, ammo and score. The records are (100, 2, 20), (80, 0, 40) and (60, 7, 0).', 'Give every player 10 ammo and add 5 to their score.'],
+    starterCode: startWith('define the list players with DB after HALT, then use IX on it'),
     hints: hints(
-      ['Define items after HALT with nine DB values.', 'Point IX at items, put the number of passes in B and the step in DE. Each pass reads (IX+0) and (IX+1), writes the sum to (IX+2), then moves IX on by the step.'],
-      'A loop of three passes, each writing one sum and stepping IX on by three.',
-      `        ORG 0x8000
-        LD IX,items
-        LD B,3          ; three passes
-        LD DE,3         ; step of three bytes
-loop:   LD A,(IX+0)     ; first byte
-        ADD A,(IX+1)    ; + the next
-        LD (IX+2),A     ; store the sum two places on
-        ADD IX,DE       ; on by the step
+      ['Define players after HALT: nine DB values, three records of health, ammo and score.', 'Point IX at players, put the number of players in B and the record size in DE. Each pass changes the ammo and score fields with (IX+offset), then moves IX on to the next record.'],
+      'A loop of three passes: set the ammo, add to the score, then step IX on by three.',
+      `AMMO    EQU 1
+SCORE   EQU 2
+SIZE    EQU 3
+        ORG 0x8000
+        LD IX,players
+        LD B,3          ; three players
+        LD DE,SIZE      ; size of a record
+loop:   LD (IX+AMMO),10 ; refill the ammo
+        LD A,(IX+SCORE)
+        ADD A,5
+        LD (IX+SCORE),A ; score = score + 5
+        ADD IX,DE       ; on to the next player
         DJNZ loop
         HALT
-items:  DB 1,2,0
-        DB 3,4,0
-        DB 5,6,0`,
+players: DB 100,2,20
+         DB 80,0,40
+         DB 60,7,0`,
     ),
     tests: [
-      { name: 'the given values', expect: { memory: { items: [1, 2, 3, 3, 4, 7, 5, 6, 11] } } },
-      { name: 'other values and stale sums', setup: { memory: { items: [10, 20, 99, 0, 0, 5, 100, 55, 7] } }, expect: { memory: { items: [10, 20, 30, 0, 0, 0, 100, 55, 155] } } },
+      { name: 'the given players', expect: { memory: { players: [100, 10, 25, 80, 10, 45, 60, 10, 5] } } },
+      { name: 'other values', setup: { memory: { players: [1, 1, 1, 2, 2, 2, 3, 3, 3] } }, expect: { memory: { players: [1, 10, 6, 2, 10, 7, 3, 10, 8] } } },
     ],
   },
   {
